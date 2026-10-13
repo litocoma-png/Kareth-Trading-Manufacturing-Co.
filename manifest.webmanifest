@@ -1,0 +1,11 @@
+{
+  "name": "Kareth Store Manager",
+  "short_name": "Kareth Store",
+  "description": "Offline-first product pricing, inventory, and sales tracker",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f3f6f4",
+  "theme_color": "#123b32",
+  "icons": []
+}

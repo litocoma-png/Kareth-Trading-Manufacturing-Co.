@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#123b32">
+<meta name="description" content="Offline product pricing, inventory and sales tracker for a hardware and convenience store.">
+<link rel="manifest" href="./manifest.webmanifest">
+<title>Kareth Store Manager</title>
+<style>
+:root{--green:#123b32;--green2:#1c6653;--bg:#f3f6f4;--card:#fff;--ink:#17211e;--muted:#65716c;--line:#dce5df;--red:#b42318;--amber:#986300}
+*{box-sizing:border-box}body{margin:0;font:15px system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--ink)}
+header{background:var(--green);color:#fff;padding:18px 16px 14px;position:sticky;top:0;z-index:5;box-shadow:0 2px 8px #0002}
+header h1{font-size:20px;margin:0 0 4px}header p{margin:0;color:#d5e6df;font-size:12px}
+nav{display:flex;gap:6px;overflow:auto;padding:10px;background:#fff;border-bottom:1px solid var(--line);position:sticky;top:67px;z-index:4}
+nav button{white-space:nowrap;border:0;border-radius:999px;padding:9px 13px;background:#eaf0ec;color:var(--green);font-weight:650}
+nav button.active{background:var(--green);color:white}
+main{max-width:1000px;margin:auto;padding:14px; padding-bottom:48px}.panel{display:none}.panel.active{display:block}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:15px;margin:0 0 13px;box-shadow:0 2px 5px #10261a08}
+h2{font-size:18px;margin:0 0 12px}h3{font-size:15px;margin:0 0 8px}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.stat{background:#f0f6f2;border-radius:12px;padding:12px}.stat small{display:block;color:var(--muted);font-size:12px}.stat strong{display:block;font-size:20px;margin-top:4px;overflow-wrap:anywhere}
+label{display:block;font-size:12px;color:var(--muted);font-weight:650;margin:9px 0 4px}input,select,textarea{width:100%;padding:11px;border:1px solid #cbd7d0;border-radius:9px;background:#fff;color:var(--ink);font:inherit;min-height:42px}input[type=checkbox]{width:auto;min-height:0}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}.btn{border:0;border-radius:9px;padding:11px 13px;font:inherit;font-weight:700;background:var(--green);color:#fff;cursor:pointer}.btn.secondary{background:#e7eee9;color:var(--green)}.btn.danger{background:#fae8e6;color:var(--red)}.btn.small{padding:7px 9px;font-size:12px}.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.hint{font-size:12px;color:var(--muted);line-height:1.45}.pill{display:inline-block;border-radius:99px;padding:3px 8px;background:#e8f2eb;color:var(--green);font-size:11px;font-weight:700}.pill.low{background:#fff1d6;color:var(--amber)}.pill.out{background:#fae8e6;color:var(--red)}
+.tablewrap{overflow:auto}table{width:100%;border-collapse:collapse;font-size:13px}th,td{text-align:left;padding:9px 7px;border-bottom:1px solid var(--line);vertical-align:top}th{font-size:11px;color:var(--muted);text-transform:uppercase}
+.result{background:#eff7f1;border:1px solid #d4e8d9;padding:11px;border-radius:10px;margin-top:10px}.result strong{font-size:19px;color:var(--green)}.empty{color:var(--muted);padding:18px 4px;text-align:center}
+#toast{position:fixed;bottom:15px;left:50%;transform:translateX(-50%);background:#17211e;color:white;padding:10px 15px;border-radius:10px;z-index:10;display:none;max-width:90vw}
+footer{text-align:center;color:var(--muted);font-size:11px;padding:20px}
+@media(min-width:700px){.grid{grid-template-columns:repeat(4,minmax(0,1fr))}.formgrid{display:grid;grid-template-columns:1fr 1fr;gap:0 14px}}
+</style>
+</head>
+<body>
+<header><h1>🧰 Kareth Store Manager</h1><p>Hardware + Convenience Store · Offline-first · PHP (₱)</p></header>
+<nav id="nav">
+<button class="active" data-tab="dashboard">Dashboard</button><button data-tab="products">Products</button><button data-tab="pricing">Price Calculator</button><button data-tab="sales">Record Sale</button><button data-tab="credit">Credit Line (7 Days)</button><button data-tab="reports">Reports</button><button data-tab="backup">Backup & Settings</button>
+</nav>
+<main>
+<section id="dashboard" class="panel active">
+<div class="card"><h2>Store overview</h2><div class="grid">
+<div class="stat"><small>Products</small><strong id="statProducts">0</strong></div>
+<div class="stat"><small>Units in stock</small><strong id="statUnits">0</strong></div>
+<div class="stat"><small>Inventory cost value</small><strong id="statValue">₱0.00</strong></div>
+<div class="stat"><small>Sales today</small><strong id="statSales">₱0.00</strong></div>
+</div></div>
+<div class="card"><h2>Low-stock alerts</h2><div id="lowStock" class="empty">No products yet.</div></div>
+<div class="card"><h2>Quick actions</h2><div class="actions"><button class="btn" data-goto="products">＋ Add product</button><button class="btn secondary" data-goto="sales">Record sale</button><button class="btn secondary" data-goto="pricing">Calculate price</button></div></div>
+</section>
+<section id="products" class="panel">
+<div class="card"><h2 id="productFormTitle">Add product</h2><input id="editId" type="hidden">
+<div class="formgrid">
+<div><label for="pName">Product name *</label><input id="pName" placeholder="e.g. 1/2-inch PVC elbow"></div>
+<div><label for="pCategory">Category</label><select id="pCategory"><option>Hardware</option><option>Convenience</option><option>Food & Beverage</option><option>Cleaning</option><option>Electrical</option><option>Plumbing</option><option>Tools</option><option>Other</option></select></div>
+<div><label for="pSku">SKU / Product code</label><input id="pSku" placeholder="Optional unique code"></div>
+<div><label for="pBarcode">Barcode</label><input id="pBarcode" inputmode="numeric" placeholder="Scan with a USB/Bluetooth scanner or type"></div>
+<div><label for="pCost">Unit purchase cost (₱) *</label><input id="pCost" type="number" min="0" step="0.01" placeholder="0.00"></div>
+<div><label for="pQty">Opening / current stock *</label><input id="pQty" type="number" min="0" step="1" placeholder="0"></div>
+<div><label for="pReorder">Low-stock threshold</label><input id="pReorder" type="number" min="0" step="1" value="5"></div>
+<div><label for="pSupplier">Supplier</label><input id="pSupplier" placeholder="Optional"></div>
+</div>
+<div class="row"><div><label for="pMethod">Pricing method</label><select id="pMethod"><option value="markup">Markup on cost</option><option value="margin">Target profit margin</option></select></div><div><label for="pPercent">Percentage (%)</label><input id="pPercent" type="number" min="0" max="99.99" step="0.1" value="25"></div></div>
+<div class="result">Suggested selling price: <strong id="suggestedPrice">₱0.00</strong><div class="hint" id="suggestedDetail">Enter a cost and percentage.</div></div>
+<div class="actions"><button class="btn" id="saveProduct">Save product</button><button class="btn secondary" id="clearProduct">Clear form</button></div>
+<p class="hint">Barcode note: most USB/Bluetooth barcode scanners act like a keyboard and enter the scanned code into the focused field. Camera scanning is offered in the product lookup below where the browser supports it.</p>
+</div>
+<div class="card"><h2>Product list & lookup</h2><label for="productSearch">Search name, SKU, or barcode</label><input id="productSearch" placeholder="Type or scan a barcode…">
+<div class="actions"><button class="btn secondary" id="cameraScan">📷 Scan with camera</button><button class="btn secondary" id="stopScan" hidden>Stop camera</button></div><div id="scanArea"></div>
+<div class="tablewrap"><table><thead><tr><th>Product</th><th>Cost</th><th>Price</th><th>Stock</th><th>Actions</th></tr></thead><tbody id="productRows"></tbody></table></div>
+</div>
+</section>
+<section id="pricing" class="panel">
+<div class="card"><h2>Price calculator</h2><label for="cCost">Unit cost (₱)</label><input id="cCost" type="number" min="0" step=".01" value="100">
+<label for="cPercent">Percentage (%)</label><input id="cPercent" type="number" min="0" max="99.99" step=".1" value="25">
+<label for="cMethod">Method</label><select id="cMethod"><option value="markup">Markup on cost</option><option value="margin">Target profit margin</option></select>
+<div class="result"><div class="hint">Recommended selling price</div><strong id="cPrice">₱125.00</strong><p id="cExplanation" class="hint">Cost ₱100.00 + 25% markup = ₱125.00.</p></div>
+<p class="hint"><b>Markup:</b> selling price = cost × (1 + percentage). <b>Margin:</b> selling price = cost ÷ (1 − margin). Margin must be below 100%. These calculations do not automatically include tax, delivery, spoilage, or other overhead unless you include them in cost.</p>
+</div>
+</section>
+<section id="sales" class="panel">
+<div class="card"><h2>Record a sale</h2><label for="saleLookup">Find product by name, SKU, or barcode</label><input id="saleLookup" placeholder="Type or scan barcode">
+<div id="saleMatches"></div>
+<div id="saleForm" hidden><div class="result"><b id="saleProductName"></b><div class="hint" id="saleAvailable"></div></div><label for="saleQty">Quantity sold</label><input id="saleQty" type="number" min="1" step="1" value="1"><label for="saleUnitPrice">Selling price per unit (₱)</label><input id="saleUnitPrice" type="number" min="0" step=".01"><label for="saleDiscount">Discount for this sale (₱)</label><input id="saleDiscount" type="number" min="0" step=".01" value="0"><label for="saleNote">Reference / note</label><input id="saleNote" placeholder="Optional">
+<div class="result"><div class="hint">Sale total</div><strong id="saleTotal">₱0.00</strong><div class="hint" id="saleProfit">Estimated gross profit: ₱0.00</div></div>
+<div class="actions"><button class="btn" id="completeSale">Complete sale</button><button class="btn secondary" id="cancelSale">Cancel</button></div></div>
+</div>
+<div class="card"><h2>Recent sales</h2><div class="tablewrap"><table><thead><tr><th>Date / time</th><th>Product</th><th>Qty</th><th>Total</th><th>Gross profit</th></tr></thead><tbody id="recentSales"></tbody></table></div></div>
+</section>
+<section id="credit" class="panel">
+<div class="card"><h2>Customer credit line · 7-day payment</h2><p class="hint">Record credit given to a customer, set a customer credit limit, and record partial or full payments. Due date is 7 days after the credit date. Keep a separate written receipt for important transactions.</p>
+<div class="formgrid"><div><label for="crCustomer">Customer name *</label><input id="crCustomer" placeholder="Customer full name"></div><div><label for="crPhone">Contact number</label><input id="crPhone" placeholder="Optional phone number"></div><div><label for="crLimit">Customer credit limit (₱) *</label><input id="crLimit" type="number" min="0" step=".01" value="2000"></div><div><label for="crAmount">New credit amount (₱) *</label><input id="crAmount" type="number" min=".01" step=".01" placeholder="0.00"></div><div><label for="crDate">Credit date</label><input id="crDate" type="date"></div><div><label for="crNote">Items / reference</label><input id="crNote" placeholder="e.g. cement, groceries, receipt no."></div></div>
+<div class="result"><div class="hint">Due date</div><strong id="crDuePreview">Choose a credit date</strong><div class="hint" id="crLimitPreview">Enter customer and amount to check available credit.</div></div><div class="actions"><button class="btn" id="crAdd">Record credit</button></div></div>
+<div class="card"><h2>Record customer payment</h2><label for="crPayAccount">Customer / credit record</label><select id="crPayAccount"><option value="">Select an outstanding credit</option></select><label for="crPayAmount">Payment received (₱)</label><input id="crPayAmount" type="number" min=".01" step=".01" placeholder="0.00"><label for="crPayNote">Payment reference</label><input id="crPayNote" placeholder="Optional receipt / note"><button class="btn" id="crPay">Record payment</button></div>
+<div class="card"><h2>Credit summary</h2><div class="grid"><div class="stat"><small>Total outstanding</small><strong id="crOutstanding">₱0.00</strong></div><div class="stat"><small>Due soon (next 2 days)</small><strong id="crDueSoon">₱0.00</strong></div><div class="stat"><small>Overdue</small><strong id="crOverdue">₱0.00</strong></div></div><div class="tablewrap"><table><thead><tr><th>Customer</th><th>Credit date</th><th>Due date</th><th>Limit</th><th>Original</th><th>Paid</th><th>Balance</th><th>Status</th><th>Payments</th></tr></thead><tbody id="creditRows"></tbody></table></div></div>
+</section>
+<section id="reports" class="panel">
+<div class="card"><h2>Sales & inventory reports</h2><div class="row"><div><label for="reportFrom">From date</label><input id="reportFrom" type="date"></div><div><label for="reportTo">To date</label><input id="reportTo" type="date"></div></div><div class="actions"><button class="btn" id="runReport">Generate report</button><button class="btn secondary" id="exportCsv">Export sales CSV</button></div>
+<div class="grid" style="margin-top:12px"><div class="stat"><small>Sales revenue</small><strong id="rRevenue">₱0.00</strong></div><div class="stat"><small>Estimated gross profit</small><strong id="rProfit">₱0.00</strong></div><div class="stat"><small>Items sold</small><strong id="rUnits">0</strong></div><div class="stat"><small>Transactions</small><strong id="rTransactions">0</strong></div></div></div>
+<div class="card"><h2>Current stock valuation</h2><div id="stockReport" class="tablewrap"></div></div>
+<div class="card"><h2>Sales by product</h2><div id="productReport" class="tablewrap"></div></div>
+</section>
+<section id="backup" class="panel">
+<div class="card"><h2>Backup & restore</h2><p class="hint">Your records are saved in this browser on this phone. Export backups regularly. Clearing browser data, uninstalling the browser, or changing devices can erase local records.</p><div class="actions"><button class="btn" id="exportBackup">⬇ Export backup JSON</button><label class="btn secondary" for="importFile" style="margin:0;cursor:pointer">⬆ Restore backup JSON</label><input id="importFile" type="file" accept="application/json,.json" hidden></div><p class="hint">Restoring replaces the current data on this phone. Export a backup first if you want to keep the current records.</p></div>
+<div class="card"><h2>App status</h2><p id="offlineStatus">Checking offline capability…</p><p class="hint">For full installable/offline support, serve this folder from HTTPS or localhost. Opening index.html directly as a file will still allow local data entry in many browsers, but service-worker installation and offline caching will not work.</p><div class="actions"><button class="btn secondary" id="installApp" hidden>Install app</button><button class="btn danger" id="clearData">Delete all local data</button></div></div>
+<div class="card"><h2>Pricing examples</h2><p class="hint">Example: cost ₱80 with 25% markup → ₱100 selling price. Cost ₱80 with 25% target margin → ₱106.67 selling price. Gross profit excludes overhead and tax.</p></div>
+</section>
+<footer>Kareth Store Manager · Data stays on this device unless you export it.</footer>
+</main><div id="toast"></div>
+<script>
+const DBKEY='kareth-store-v1';
+let state={products:[],sales:[],credits:[]}, selectedSaleId=null, deferredInstall=null, scanStream=null, scanTimer=null;
+const $=id=>document.getElementById(id);
+const peso=n=>'₱'+(Number(n)||0).toLocaleString('en-PH',{minimumFractionDigits:2,maximumFractionDigits:2});
+const num=v=>Number(v)||0;
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,8);
+function toast(s){$('toast').textContent=s;$('toast').style.display='block';setTimeout(()=>$('toast').style.display='none',2600)}
+function load(){try{const x=JSON.parse(localStorage.getItem(DBKEY)||'{}');state={products:Array.isArray(x.products)?x.products:[],sales:Array.isArray(x.sales)?x.sales:[],credits:Array.isArray(x.credits)?x.credits:[]}}catch(e){state={products:[],sales:[],credits:[]}}}
+function save(){localStorage.setItem(DBKEY,JSON.stringify(state));renderAll()}
+function price(cost,pct,method){cost=num(cost);pct=Math.max(0,num(pct));if(method==='margin')return pct>=100?NaN:cost/(1-pct/100);return cost*(1+pct/100)}
+function moneyDate(d){return new Date(d).toLocaleString('en-PH',{dateStyle:'short',timeStyle:'short'})}
+function today(){const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`}
+function showTab(id){if(id==='credit')renderCredit();document.querySelectorAll('.panel').forEach(x=>x.classList.toggle('active',x.id===id));document.querySelectorAll('nav button').forEach(x=>x.classList.toggle('active',x.dataset.tab===id));if(id==='reports')runReport();window.scrollTo({top:0,behavior:'smooth'})}
+document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>showTab(b.dataset.tab));
+document.querySelectorAll('[data-goto]').forEach(b=>b.onclick=()=>showTab(b.dataset.goto));
+function updateSuggested(){const p=price($('pCost').value,$('pPercent').value,$('pMethod').value);$('suggestedPrice').textContent=Number.isFinite(p)?peso(p):'Invalid';$('suggestedDetail').textContent=$('pMethod').value==='markup'?'Cost plus markup on cost.':'Selling price set to achieve target margin.'}
+['pCost','pPercent','pMethod'].forEach(id=>$(id).addEventListener('input',updateSuggested));
+function clearProduct(){['editId','pName','pSku','pBarcode','pCost','pQty','pSupplier'].forEach(id=>$(id).value='');$('pCategory').value='Hardware';$('pReorder').value=5;$('pMethod').value='markup';$('pPercent').value=25;$('productFormTitle').textContent='Add product';updateSuggested()}
+$('clearProduct').onclick=clearProduct;
+$('saveProduct').onclick=()=>{
+const name=$('pName').value.trim(),cost=num($('pCost').value),qty=num($('pQty').value),id=$('editId').value;
+if(!name||$('pCost').value===''||$('pQty').value===''||cost<0||qty<0||!Number.isInteger(qty)){toast('Enter a name, valid cost, and whole-number stock quantity.');return}
+const sku=$('pSku').value.trim(),barcode=$('pBarcode').value.trim();
+if(state.products.some(p=>p.id!==id&&((sku&&p.sku===sku)||(barcode&&p.barcode===barcode)))){toast('That SKU or barcode is already assigned to another product.');return}
+const old=state.products.find(p=>p.id===id);
+const method=$('pMethod').value,pct=num($('pPercent').value),suggest=price(cost,pct,method);
+const p={id:id||uid(),name,category:$('pCategory').value,sku,barcode,cost,qty,reorder:num($('pReorder').value),supplier:$('pSupplier').value.trim(),method,pct,price:Number.isFinite(suggest)?Math.round(suggest*100)/100:cost,updated:new Date().toISOString()};
+if(old){const idx=state.products.indexOf(old);state.products[idx]=p}else state.products.push(p);
+save();clearProduct();toast('Product saved.');
+};
+function editProduct(id){const p=state.products.find(x=>x.id===id);if(!p)return;showTab('products');$('editId').value=p.id;$('pName').value=p.name;$('pCategory').value=p.category;$('pSku').value=p.sku;$('pBarcode').value=p.barcode;$('pCost').value=p.cost;$('pQty').value=p.qty;$('pReorder').value=p.reorder;$('pSupplier').value=p.supplier;$('pMethod').value=p.method||'markup';$('pPercent').value=p.pct||0;$('productFormTitle').textContent='Edit product';updateSuggested();window.scrollTo({top:0,behavior:'smooth'})}
+function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function renderProducts(){const q=$('productSearch').value.trim().toLowerCase();const ps=state.products.filter(p=>[p.name,p.sku,p.barcode,p.category].some(v=>String(v||'').toLowerCase().includes(q)));$('productRows').innerHTML=ps.map(p=>`<tr><td><b>${esc(p.name)}</b><br><span class="hint">${esc(p.sku||p.barcode||p.category)}</span></td><td>${peso(p.cost)}</td><td>${peso(p.price)}</td><td>${p.qty} ${p.qty<=0?'<span class="pill out">OUT</span>':p.qty<=p.reorder?'<span class="pill low">LOW</span>':''}</td><td><button class="btn small secondary" onclick="editProduct('${p.id}')">Edit</button> <button class="btn small secondary" onclick="chooseSale('${p.id}')">Sell</button> <button class="btn small danger" onclick="deleteProduct('${p.id}')">Delete</button></td></tr>`).join('')||'<tr><td colspan="5" class="empty">No matching products.</td></tr>'}
+$('productSearch').addEventListener('input',renderProducts);
+function deleteProduct(id){const p=state.products.find(x=>x.id===id);if(p&&confirm(`Delete ${p.name}? Historical sales are retained.`)){state.products=state.products.filter(x=>x.id!==id);save();toast('Product deleted.')}}
+window.editProduct=editProduct;window.deleteProduct=deleteProduct;
+function updateCalculator(){const c=num($('cCost').value),pct=num($('cPercent').value),m=$('cMethod').value,p=price(c,pct,m);$('cPrice').textContent=Number.isFinite(p)?peso(p):'Invalid margin';$('cExplanation').textContent=!Number.isFinite(p)?'Margin must be below 100%.':m==='markup'?`Cost ${peso(c)} + ${pct}% markup = ${peso(p)}.`:`Cost ${peso(c)} ÷ (1 − ${pct/100}) = ${peso(p)}. Gross profit: ${peso(p-c)}.`}
+['cCost','cPercent','cMethod'].forEach(id=>$(id).addEventListener('input',updateCalculator));
+function findProducts(q){q=String(q||'').trim().toLowerCase();return q?state.products.filter(p=>[p.name,p.sku,p.barcode].some(v=>String(v||'').toLowerCase().includes(q))).slice(0,8):[]}
+$('saleLookup').addEventListener('input',()=>{const a=findProducts($('saleLookup').value);$('saleMatches').innerHTML=a.map(p=>`<button class="btn secondary" style="margin:4px 4px 4px 0" onclick="chooseSale('${p.id}')">${esc(p.name)} · ${p.qty} in stock · ${peso(p.price)}</button>`).join('')||'<p class="hint">Enter a product name, SKU, or barcode.</p>'});
+function chooseSale(id){const p=state.products.find(x=>x.id===id);if(!p)return;selectedSaleId=id;$('saleForm').hidden=false;$('saleProductName').textContent=p.name;$('saleAvailable').textContent=`Available: ${p.qty} · Unit cost ${peso(p.cost)}`;$('saleQty').value=1;$('saleUnitPrice').value=p.price;$('saleDiscount').value=0;$('saleNote').value='';updateSaleTotal();$('saleMatches').innerHTML='';$('saleLookup').value=p.barcode||p.sku||p.name}
+window.chooseSale=chooseSale;
+['saleQty','saleUnitPrice','saleDiscount'].forEach(id=>$(id).addEventListener('input',updateSaleTotal));
+function updateSaleTotal(){const p=state.products.find(x=>x.id===selectedSaleId);if(!p)return;const qty=Math.max(0,num($('saleQty').value)),total=Math.max(0,qty*num($('saleUnitPrice').value)-num($('saleDiscount').value)),profit=total-qty*p.cost;$('saleTotal').textContent=peso(total);$('saleProfit').textContent='Estimated gross profit: '+peso(profit)}
+$('cancelSale').onclick=()=>{$('saleForm').hidden=true;selectedSaleId=null};
+$('completeSale').onclick=()=>{const p=state.products.find(x=>x.id===selectedSaleId),qty=num($('saleQty').value),unit=num($('saleUnitPrice').value),discount=num($('saleDiscount').value);if(!p)return;if(!Number.isInteger(qty)||qty<1||qty>p.qty){toast('Quantity must be a whole number within available stock.');return}if(unit<0||discount<0||discount>qty*unit){toast('Check selling price and discount.');return}const total=qty*unit-discount;const s={id:uid(),date:new Date().toISOString(),productId:p.id,productName:p.name,qty,unitPrice:unit,discount,total,costAtSale:p.cost,profit:total-qty*p.cost,note:$('saleNote').value.trim()};p.qty-=qty;state.sales.unshift(s);save();$('saleForm').hidden=true;selectedSaleId=null;$('saleLookup').value='';$('saleMatches').innerHTML='';toast('Sale recorded and stock updated.')};
+function renderSales(){const rows=state.sales.slice(0,20);$('recentSales').innerHTML=rows.map(s=>`<tr><td>${moneyDate(s.date)}</td><td>${esc(s.productName)}${s.note?'<br><span class="hint">'+esc(s.note)+'</span>':''}</td><td>${s.qty}</td><td>${peso(s.total)}</td><td>${peso(s.profit)}</td></tr>`).join('')||'<tr><td colspan="5" class="empty">No sales recorded yet.</td></tr>'}
+function renderDashboard(){const todaySales=state.sales.filter(s=>s.date.slice(0,10)===today());$('statProducts').textContent=state.products.length;$('statUnits').textContent=state.products.reduce((a,p)=>a+p.qty,0).toLocaleString('en-PH');$('statValue').textContent=peso(state.products.reduce((a,p)=>a+p.cost*p.qty,0));$('statSales').textContent=peso(todaySales.reduce((a,s)=>a+s.total,0));const low=state.products.filter(p=>p.qty<=p.reorder);$('lowStock').innerHTML=low.map(p=>`<div style="padding:8px 0;border-bottom:1px solid var(--line)"><b>${esc(p.name)}</b> — ${p.qty} left ${p.qty===0?'<span class="pill out">OUT OF STOCK</span>':'<span class="pill low">LOW STOCK</span>'}</div>`).join('')||'<div class="empty">No low-stock products. Add products to start monitoring.</div>'}
+function renderStockReport(){$('stockReport').innerHTML='<table><thead><tr><th>Product</th><th>Qty</th><th>Cost value</th><th>Potential sales</th></tr></thead><tbody>'+state.products.map(p=>`<tr><td>${esc(p.name)}</td><td>${p.qty}</td><td>${peso(p.qty*p.cost)}</td><td>${peso(p.qty*p.price)}</td></tr>`).join('')+'</tbody></table>'}
+function runReport(){const from=$('reportFrom').value||'0000-01-01',to=$('reportTo').value||'9999-12-31';const sales=state.sales.filter(s=>s.date.slice(0,10)>=from&&s.date.slice(0,10)<=to);$('rRevenue').textContent=peso(sales.reduce((a,s)=>a+s.total,0));$('rProfit').textContent=peso(sales.reduce((a,s)=>a+s.profit,0));$('rUnits').textContent=sales.reduce((a,s)=>a+s.qty,0);$('rTransactions').textContent=sales.length;const by={};sales.forEach(s=>{const k=s.productName;by[k]??={qty:0,total:0,profit:0};by[k].qty+=s.qty;by[k].total+=s.total;by[k].profit+=s.profit});$('productReport').innerHTML='<table><thead><tr><th>Product</th><th>Qty sold</th><th>Revenue</th><th>Gross profit</th></tr></thead><tbody>'+Object.entries(by).map(([k,v])=>`<tr><td>${esc(k)}</td><td>${v.qty}</td><td>${peso(v.total)}</td><td>${peso(v.profit)}</td></tr>`).join('')+'</tbody></table>';$('productReport').querySelector('tbody').innerHTML ||= '<tr><td colspan="4">No sales for this period.</td></tr>';renderStockReport()}
+$('runReport').onclick=runReport;$('reportFrom').value=today();$('reportTo').value=today();
+function download(name,content,type){const a=document.createElement('a'),url=URL.createObjectURL(new Blob([content],{type}));a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000)}
+$('exportBackup').onclick=()=>download('kareth-store-backup-'+today()+'.json',JSON.stringify({...state,exportedAt:new Date().toISOString(),app:'Kareth Store Manager'},null,2),'application/json');
+$('importFile').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const x=JSON.parse(await f.text());if(!Array.isArray(x.products)||!Array.isArray(x.sales))throw Error('Invalid');x.credits=Array.isArray(x.credits)?x.credits:[];if(!confirm('Replace all current local records with this backup?'))return;state={products:x.products,sales:x.sales,credits:x.credits};save();toast('Backup restored.');}catch(err){toast('Could not restore: invalid backup file.')}finally{e.target.value=''}};
+$('exportCsv').onclick=()=>{const header=['date','product','quantity','unit_price_php','discount_php','total_php','cost_at_sale_php','gross_profit_php','note'];const lines=[header,...state.sales.map(s=>[s.date,s.productName,s.qty,s.unitPrice,s.discount,s.total,s.costAtSale,s.profit,s.note||''])].map(row=>row.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(','));download('kareth-sales-'+today()+'.csv','\ufeff'+lines.join('\r\n'),'text/csv;charset=utf-8')};
+$('clearData').onclick=()=>{if(confirm('Permanently delete all products and sales from this browser? Export a backup first if needed.')&&confirm('Final confirmation: delete everything?')){state={products:[],sales:[],credits:[]};save();clearProduct();toast('Local data deleted.')}};
+async function startScan(){const area=$('scanArea');if(!('BarcodeDetector'in window)){area.innerHTML='<p class="hint">This browser does not support built-in camera barcode scanning. Use a Bluetooth/USB scanner or type the barcode in the search box.</p>';return}try{scanStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}});area.innerHTML='<video id="scanVideo" autoplay playsinline style="width:100%;max-width:400px;border-radius:12px;margin-top:10px"></video><p class="hint">Point the camera at a barcode.</p>';const v=$('scanVideo');v.srcObject=scanStream;const detector=new BarcodeDetector();$('cameraScan').hidden=true;$('stopScan').hidden=false;const tick=async()=>{if(!scanStream)return;try{const codes=await detector.detect(v);if(codes.length){$('productSearch').value=codes[0].rawValue;renderProducts();stopScan();toast('Barcode found.')}}catch(e){}scanTimer=setTimeout(tick,300)};v.onloadedmetadata=()=>tick()}catch(e){area.innerHTML='<p class="hint">Camera access failed. Allow camera permission or use a barcode scanner/manual entry.</p>'}}
+function stopScan(){if(scanTimer)clearTimeout(scanTimer);if(scanStream){scanStream.getTracks().forEach(t=>t.stop());scanStream=null}$('cameraScan').hidden=false;$('stopScan').hidden=true}
+$('cameraScan').onclick=startScan;$('stopScan').onclick=stopScan;
+window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredInstall=e;$('installApp').hidden=false});
+$('installApp').onclick=async()=>{if(deferredInstall){deferredInstall.prompt();await deferredInstall.userChoice;deferredInstall=null;$('installApp').hidden=true}else toast('Use your browser menu and choose Add to Home screen.')};
+function isoToday(){return new Date().toISOString().slice(0,10)}
+function plusDays(date,days){const d=new Date((date||isoToday())+'T12:00:00');d.setDate(d.getDate()+days);return d.toISOString().slice(0,10)}
+function creditBalance(c){return Math.max(0,Number(c.amount||0)-Number(c.paid||0))}
+function dateLabel(d){return d?new Date(d+'T12:00:00').toLocaleDateString('en-PH',{year:'numeric',month:'short',day:'numeric'}):'—'}
+function creditStatus(c){const b=creditBalance(c);if(b<=0)return 'PAID';if(c.due<isoToday())return 'OVERDUE';if(c.due<=plusDays(isoToday(),2))return 'DUE SOON';return 'UNPAID'}
+function renderCredit(){if(!$('crDate'))return;const date=$('crDate').value||isoToday();$('crDuePreview').textContent=dateLabel(plusDays(date,7));const customer=$('crCustomer').value.trim(),amount=num($('crAmount').value),limit=num($('crLimit').value);const owed=state.credits.filter(c=>c.customer.toLowerCase()===customer.toLowerCase()).reduce((a,c)=>a+creditBalance(c),0);$('crLimitPreview').textContent=customer?`Existing balance ${peso(owed)} · Available credit ${peso(Math.max(0,limit-owed))}`:'Enter customer and amount to check available credit.';const active=state.credits.filter(c=>creditBalance(c)>0);$('crPayAccount').innerHTML='<option value="">Select an outstanding credit</option>'+active.map(c=>`<option value="${c.id}">${esc(c.customer)} · balance ${peso(creditBalance(c))} · due ${dateLabel(c.due)}</option>`).join('');$('crOutstanding').textContent=peso(active.reduce((a,c)=>a+creditBalance(c),0));$('crDueSoon').textContent=peso(active.filter(c=>c.due>=isoToday()&&c.due<=plusDays(isoToday(),2)).reduce((a,c)=>a+creditBalance(c),0));$('crOverdue').textContent=peso(active.filter(c=>c.due<isoToday()).reduce((a,c)=>a+creditBalance(c),0));$('creditRows').innerHTML=state.credits.slice().reverse().map(c=>`<tr><td>${esc(c.customer)}${c.phone?'<br><span class="hint">'+esc(c.phone)+'</span>':''}<br><span class="hint">${esc(c.note||'')}</span></td><td>${dateLabel(c.date)}</td><td>${dateLabel(c.due)}</td><td>${peso(c.limit)}</td><td>${peso(c.amount)}</td><td>${peso(c.paid)}</td><td><b>${peso(creditBalance(c))}</b></td><td>${creditStatus(c)}</td><td>${(c.payments||[]).map(p=>`${dateLabel(p.date)}: ${peso(p.amount)}${p.note?' ('+esc(p.note)+')':''}`).join('<br>')||'—'}</td></tr>`).join('')||'<tr><td colspan="9" class="empty">No credit records yet.</td></tr>'}
+['crCustomer','crAmount','crLimit','crDate'].forEach(id=>$(id).addEventListener('input',renderCredit));$('crDate').value=isoToday();
+$('crAdd').onclick=()=>{const customer=$('crCustomer').value.trim(),phone=$('crPhone').value.trim(),limit=num($('crLimit').value),amount=num($('crAmount').value),date=$('crDate').value||isoToday(),note=$('crNote').value.trim();if(!customer||limit<0||amount<=0){toast('Enter customer name, valid credit limit, and credit amount.');return}const owed=state.credits.filter(c=>c.customer.toLowerCase()===customer.toLowerCase()).reduce((a,c)=>a+creditBalance(c),0);if(owed+amount>limit){toast(`Credit exceeds this customer's limit. Available: ${peso(Math.max(0,limit-owed))}`);return}state.credits.push({id:uid(),customer,phone,limit,amount,paid:0,date,due:plusDays(date,7),note,payments:[]});save();$('crAmount').value='';$('crNote').value='';toast('7-day credit recorded. Due '+dateLabel(plusDays(date,7))+'.');showTab('credit')};
+$('crPay').onclick=()=>{const c=state.credits.find(x=>x.id===$('crPayAccount').value),amount=num($('crPayAmount').value);if(!c){toast('Select a customer credit record.');return}if(amount<=0||amount>creditBalance(c)){toast('Enter a payment greater than zero and no more than the remaining balance.');return}c.paid=Number(c.paid||0)+amount;c.payments=c.payments||[];c.payments.push({date:isoToday(),amount,note:$('crPayNote').value.trim()});save();$('crPayAmount').value='';$('crPayNote').value='';toast('Payment recorded. Remaining balance: '+peso(creditBalance(c)))};
+function renderAll(){renderProducts();renderSales();renderDashboard();runReport();if($('credit'))renderCredit()}
+load();renderAll();updateCalculator();updateSuggested();
+$('offlineStatus').textContent=('serviceWorker'in navigator)?'Service worker supported. Install while online from an HTTPS site, then reopen once to cache the app.':'This browser does not support service workers; local data may still work, but offline app-shell caching is unavailable.';
+if('serviceWorker'in navigator&&location.protocol.startsWith('http'))navigator.serviceWorker.register('./sw.js').catch(()=>{$('offlineStatus').textContent='Could not register offline cache. Use HTTPS or localhost.'});
+</script>
+</body>
+</html>
