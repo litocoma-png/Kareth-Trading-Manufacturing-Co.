@@ -5,7 +5,15 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#123b32">
 <meta name="description" content="Offline product pricing, inventory and sales tracker for a hardware and convenience store.">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Kareth Store">
 <link rel="manifest" href="./manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png">
+<link rel="icon" type="image/png" sizes="512x512" href="./icon-512.png">
+<link rel="apple-touch-icon" sizes="180x180" href="./icon-180.png">
+<link rel="apple-touch-icon" href="./icon-192.png">
 <title>Kareth Store Manager</title>
 <style>
 :root{--green:#123b32;--green2:#1c6653;--bg:#f3f6f4;--card:#fff;--ink:#17211e;--muted:#65716c;--line:#dce5df;--red:#b42318;--amber:#986300}
@@ -23,6 +31,18 @@ label{display:block;font-size:12px;color:var(--muted);font-weight:650;margin:9px
 .row{display:grid;grid-template-columns:1fr 1fr;gap:10px}.btn{border:0;border-radius:9px;padding:11px 13px;font:inherit;font-weight:700;background:var(--green);color:#fff;cursor:pointer}.btn.secondary{background:#e7eee9;color:var(--green)}.btn.danger{background:#fae8e6;color:var(--red)}.btn.small{padding:7px 9px;font-size:12px}.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.hint{font-size:12px;color:var(--muted);line-height:1.45}.pill{display:inline-block;border-radius:99px;padding:3px 8px;background:#e8f2eb;color:var(--green);font-size:11px;font-weight:700}.pill.low{background:#fff1d6;color:var(--amber)}.pill.out{background:#fae8e6;color:var(--red)}
 .tablewrap{overflow:auto}table{width:100%;border-collapse:collapse;font-size:13px}th,td{text-align:left;padding:9px 7px;border-bottom:1px solid var(--line);vertical-align:top}th{font-size:11px;color:var(--muted);text-transform:uppercase}
 .result{background:#eff7f1;border:1px solid #d4e8d9;padding:11px;border-radius:10px;margin-top:10px}.result strong{font-size:19px;color:var(--green)}.empty{color:var(--muted);padding:18px 4px;text-align:center}
+.photo-box{display:flex;flex-direction:column;align-items:flex-start;gap:8px;margin:10px 0}
+.photo-preview{width:120px;height:120px;object-fit:cover;border-radius:12px;border:1px solid var(--line);background:#eaf0ec}
+.photo-preview.empty-ph{display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:12px;text-align:center;padding:8px}
+.thumb{width:48px;height:48px;object-fit:cover;border-radius:8px;border:1px solid var(--line);vertical-align:middle;margin-right:8px;background:#eaf0ec}
+.product-card-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;margin-top:10px}
+.product-card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:10px;text-align:center;cursor:pointer}
+.product-card img{width:100%;height:100px;object-fit:cover;border-radius:8px;background:#eaf0ec}
+.product-card .pname{font-size:13px;font-weight:650;margin-top:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.product-card .pmeta{font-size:11px;color:var(--muted)}
+.camera-wrap{position:relative;margin-top:10px}
+.camera-wrap video,.camera-wrap canvas{width:100%;max-width:400px;border-radius:12px;display:block}
+.camera-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
 #toast{position:fixed;bottom:15px;left:50%;transform:translateX(-50%);background:#17211e;color:white;padding:10px 15px;border-radius:10px;z-index:10;display:none;max-width:90vw}
 footer{text-align:center;color:var(--muted);font-size:11px;padding:20px}
 @media(min-width:700px){.grid{grid-template-columns:repeat(4,minmax(0,1fr))}.formgrid{display:grid;grid-template-columns:1fr 1fr;gap:0 14px}}
@@ -58,11 +78,35 @@ footer{text-align:center;color:var(--muted);font-size:11px;padding:20px}
 </div>
 <div class="row"><div><label for="pMethod">Pricing method</label><select id="pMethod"><option value="markup">Markup on cost</option><option value="margin">Target profit margin</option></select></div><div><label for="pPercent">Percentage (%)</label><input id="pPercent" type="number" min="0" max="99.99" step="0.1" value="25"></div></div>
 <div class="result">Suggested selling price: <strong id="suggestedPrice">₱0.00</strong><div class="hint" id="suggestedDetail">Enter a cost and percentage.</div></div>
-<div class="actions"><button class="btn" id="saveProduct">Save product</button><button class="btn secondary" id="clearProduct">Clear form</button></div>
-<p class="hint">Barcode note: most USB/Bluetooth barcode scanners act like a keyboard and enter the scanned code into the focused field. Camera scanning is offered in the product lookup below where the browser supports it.</p>
+
+<div class="photo-box">
+  <label>Product photo (for visual identification)</label>
+  <div id="photoPreviewBox" class="photo-preview empty-ph">No photo</div>
+  <img id="photoPreview" class="photo-preview" hidden alt="Product photo">
+  <input type="hidden" id="pPhoto">
+  <div class="actions">
+    <button type="button" class="btn secondary" id="takePhotoBtn">📷 Take photo</button>
+    <button type="button" class="btn secondary" id="pickPhotoBtn">🖼 Choose image</button>
+    <button type="button" class="btn danger small" id="clearPhotoBtn" hidden>Remove photo</button>
+  </div>
+  <input type="file" id="photoFile" accept="image/*" capture="environment" hidden>
+  <div id="photoCameraArea"></div>
 </div>
-<div class="card"><h2>Product list & lookup</h2><label for="productSearch">Search name, SKU, or barcode</label><input id="productSearch" placeholder="Type or scan a barcode…">
-<div class="actions"><button class="btn secondary" id="cameraScan">📷 Scan with camera</button><button class="btn secondary" id="stopScan" hidden>Stop camera</button></div><div id="scanArea"></div>
+
+<div class="actions"><button class="btn" id="saveProduct">Save product</button><button class="btn secondary" id="clearProduct">Clear form</button></div>
+<p class="hint">Take a clear photo of the product so you can identify it later by picture. Barcode is optional.</p>
+</div>
+<div class="card"><h2>Product list & lookup</h2><label for="productSearch">Search name, SKU, barcode, or browse by photo</label><input id="productSearch" placeholder="Type name or scan barcode…">
+<div class="actions">
+  <button class="btn" id="identifyProduct">📷 Identify by photo</button>
+  <button class="btn secondary" id="viewByPhoto">🖼 Browse by photo</button>
+  <button class="btn secondary" id="cameraScan">📷 Scan barcode</button>
+  <button class="btn secondary" id="stopScan" hidden>Stop camera</button>
+</div>
+<div id="scanArea"></div>
+<div id="identifyArea" hidden></div>
+<div id="photoBrowse" hidden></div>
+<p class="hint">Identify by photo compares a live picture against products that already have photos saved. Best results: same angle, good lighting, product fills most of the frame.</p>
 <div class="tablewrap"><table><thead><tr><th>Product</th><th>Cost</th><th>Price</th><th>Stock</th><th>Actions</th></tr></thead><tbody id="productRows"></tbody></table></div>
 </div>
 </section>
@@ -75,7 +119,13 @@ footer{text-align:center;color:var(--muted);font-size:11px;padding:20px}
 </div>
 </section>
 <section id="sales" class="panel">
-<div class="card"><h2>Record a sale</h2><label for="saleLookup">Find product by name, SKU, or barcode</label><input id="saleLookup" placeholder="Type or scan barcode">
+<div class="card"><h2>Record a sale</h2><label for="saleLookup">Find product by name, photo, SKU, or barcode</label><input id="saleLookup" placeholder="Type name or scan barcode…">
+<div class="actions" style="margin-top:8px">
+  <button class="btn" id="saleIdentify">📷 Identify by photo</button>
+  <button class="btn secondary" id="saleBrowsePhoto">🖼 Pick by photo</button>
+</div>
+<div id="saleIdentifyArea" hidden></div>
+<div id="salePhotoBrowse" hidden></div>
 <div id="saleMatches"></div>
 <div id="saleForm" hidden><div class="result"><b id="saleProductName"></b><div class="hint" id="saleAvailable"></div></div><label for="saleQty">Quantity sold</label><input id="saleQty" type="number" min="1" step="1" value="1"><label for="saleUnitPrice">Selling price per unit (₱)</label><input id="saleUnitPrice" type="number" min="0" step=".01"><label for="saleDiscount">Discount for this sale (₱)</label><input id="saleDiscount" type="number" min="0" step=".01" value="0"><label for="saleNote">Reference / note</label><input id="saleNote" placeholder="Optional">
 <div class="result"><div class="hint">Sale total</div><strong id="saleTotal">₱0.00</strong><div class="hint" id="saleProfit">Estimated gross profit: ₱0.00</div></div>
@@ -121,30 +171,331 @@ document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>showTab(b.datas
 document.querySelectorAll('[data-goto]').forEach(b=>b.onclick=()=>showTab(b.dataset.goto));
 function updateSuggested(){const p=price($('pCost').value,$('pPercent').value,$('pMethod').value);$('suggestedPrice').textContent=Number.isFinite(p)?peso(p):'Invalid';$('suggestedDetail').textContent=$('pMethod').value==='markup'?'Cost plus markup on cost.':'Selling price set to achieve target margin.'}
 ['pCost','pPercent','pMethod'].forEach(id=>$(id).addEventListener('input',updateSuggested));
-function clearProduct(){['editId','pName','pSku','pBarcode','pCost','pQty','pSupplier'].forEach(id=>$(id).value='');$('pCategory').value='Hardware';$('pReorder').value=5;$('pMethod').value='markup';$('pPercent').value=25;$('productFormTitle').textContent='Add product';updateSuggested()}
+function clearProduct(){
+  ['editId','pName','pSku','pBarcode','pCost','pQty','pSupplier','pPhoto'].forEach(id=>$(id).value='');
+  $('pCategory').value='Hardware';$('pReorder').value=5;$('pMethod').value='markup';$('pPercent').value=25;
+  $('productFormTitle').textContent='Add product';
+  showPhotoPreview(null);
+  stopPhotoCamera();
+  updateSuggested();
+}
+function showPhotoPreview(dataUrl){
+  const img=$('photoPreview'), box=$('photoPreviewBox'), clr=$('clearPhotoBtn');
+  if(dataUrl){
+    img.src=dataUrl; img.hidden=false; box.hidden=true; clr.hidden=false;
+    $('pPhoto').value=dataUrl;
+  } else {
+    img.src=''; img.hidden=true; box.hidden=false; clr.hidden=true;
+    $('pPhoto').value='';
+  }
+}
+function compressImage(fileOrBlob, maxSide=320, quality=0.55){
+  return new Promise((resolve,reject)=>{
+    const url = typeof fileOrBlob==='string' ? fileOrBlob : URL.createObjectURL(fileOrBlob);
+    const im = new Image();
+    im.onload=()=>{
+      let w=im.width, h=im.height;
+      if(w>maxSide || h>maxSide){
+        if(w>h){h=Math.round(h*maxSide/w);w=maxSide;}
+        else {w=Math.round(w*maxSide/h);h=maxSide;}
+      }
+      const c=document.createElement('canvas');
+      c.width=w; c.height=h;
+      c.getContext('2d').drawImage(im,0,0,w,h);
+      const data=c.toDataURL('image/jpeg', quality);
+      if(typeof fileOrBlob!=='string') URL.revokeObjectURL(url);
+      resolve(data);
+    };
+    im.onerror=reject;
+    im.src=url;
+  });
+}
+let photoStream=null;
+async function startPhotoCamera(){
+  stopPhotoCamera();
+  const area=$('photoCameraArea');
+  try{
+    photoStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}, audio:false});
+    area.innerHTML=`<div class="camera-wrap"><video id="photoVideo" autoplay playsinline></video>
+      <div class="camera-actions">
+        <button class="btn" id="capturePhotoBtn">Capture</button>
+        <button class="btn secondary" id="cancelPhotoCam">Cancel</button>
+      </div></div>`;
+    const v=$('photoVideo');
+    v.srcObject=photoStream;
+    $('capturePhotoBtn').onclick=async()=>{
+      const c=document.createElement('canvas');
+      c.width=v.videoWidth; c.height=v.videoHeight;
+      c.getContext('2d').drawImage(v,0,0);
+      stopPhotoCamera();
+      const data=await compressImage(c.toDataURL('image/jpeg',0.85));
+      showPhotoPreview(data);
+      toast('Photo captured');
+    };
+    $('cancelPhotoCam').onclick=stopPhotoCamera;
+  }catch(e){
+    area.innerHTML='<p class="hint">Camera not available. Use "Choose image" instead.</p>';
+  }
+}
+function stopPhotoCamera(){
+  if(photoStream){photoStream.getTracks().forEach(t=>t.stop());photoStream=null;}
+  const area=$('photoCameraArea'); if(area) area.innerHTML='';
+}
+
+/* ========== Offline image recognition (perceptual hash + color) ========== */
+function loadImageFromData(dataUrl){
+  return new Promise((resolve,reject)=>{
+    const im=new Image();
+    im.onload=()=>resolve(im);
+    im.onerror=reject;
+    im.src=dataUrl;
+  });
+}
+function getGrayCanvas(img, w, h){
+  const c=document.createElement('canvas');
+  c.width=w; c.height=h;
+  const ctx=c.getContext('2d',{willReadFrequently:true});
+  ctx.drawImage(img,0,0,w,h);
+  return ctx.getImageData(0,0,w,h);
+}
+/** Difference hash (64-bit as hex string) */
+function dHash(img){
+  const data=getGrayCanvas(img, 9, 8).data;
+  let bits='';
+  for(let y=0;y<8;y++){
+    for(let x=0;x<8;x++){
+      const i=(y*9+x)*4, j=(y*9+x+1)*4;
+      const g1=0.299*data[i]+0.587*data[i+1]+0.114*data[i+2];
+      const g2=0.299*data[j]+0.587*data[j+1]+0.114*data[j+2];
+      bits+=g1<g2?'1':'0';
+    }
+  }
+  // to hex
+  let hex='';
+  for(let i=0;i<64;i+=4){
+    hex+=parseInt(bits.slice(i,i+4),2).toString(16);
+  }
+  return hex;
+}
+/** Average hash for extra signal */
+function aHash(img){
+  const data=getGrayCanvas(img, 8, 8).data;
+  let sum=0, grays=[];
+  for(let i=0;i<64;i++){
+    const g=0.299*data[i*4]+0.587*data[i*4+1]+0.114*data[i*4+2];
+    grays.push(g); sum+=g;
+  }
+  const avg=sum/64;
+  let bits='';
+  grays.forEach(g=>bits+=g>=avg?'1':'0');
+  let hex='';
+  for(let i=0;i<64;i+=4) hex+=parseInt(bits.slice(i,i+4),2).toString(16);
+  return hex;
+}
+/** Simple 4x4 average color signature (48 values 0-255) */
+function colorSig(img){
+  const data=getGrayCanvas(img, 4, 4).data; // reuse but keep RGB
+  // actually redraw properly
+  const c=document.createElement('canvas');
+  c.width=4; c.height=4;
+  const ctx=c.getContext('2d');
+  ctx.drawImage(img,0,0,4,4);
+  const d=ctx.getImageData(0,0,4,4).data;
+  const sig=[];
+  for(let i=0;i<16;i++){sig.push(d[i*4],d[i*4+1],d[i*4+2]);}
+  return sig;
+}
+function hammingHex(a,b){
+  if(!a||!b||a.length!==b.length) return 64;
+  let dist=0;
+  for(let i=0;i<a.length;i++){
+    let x=parseInt(a[i],16)^parseInt(b[i],16);
+    while(x){dist+=x&1; x>>=1;}
+  }
+  return dist;
+}
+function colorDistance(a,b){
+  if(!a||!b||a.length!==b.length) return 9999;
+  let s=0;
+  for(let i=0;i<a.length;i++) s+=(a[i]-b[i])*(a[i]-b[i]);
+  return Math.sqrt(s);
+}
+async function computePhotoFeatures(dataUrl){
+  const img=await loadImageFromData(dataUrl);
+  return {dHash:dHash(img), aHash:aHash(img), color:colorSig(img)};
+}
+async function ensureProductFeatures(p){
+  if(!p.photo) return null;
+  if(p.imgFeatures && p.imgFeatures.dHash) return p.imgFeatures;
+  try{
+    p.imgFeatures=await computePhotoFeatures(p.photo);
+    return p.imgFeatures;
+  }catch(e){return null;}
+}
+/** Score 0..100 (higher = more similar) */
+function similarityScore(f1, f2){
+  if(!f1||!f2) return 0;
+  const hd=hammingHex(f1.dHash, f2.dHash); // 0..64
+  const ha=hammingHex(f1.aHash, f2.aHash);
+  const cd=colorDistance(f1.color, f2.color); // ~0..441
+  // weighted: dHash primary, aHash secondary, color tertiary
+  const hashScore=Math.max(0, 100 - (hd*1.1 + ha*0.6));
+  const colorScore=Math.max(0, 100 - cd/3.5);
+  return Math.round(hashScore*0.72 + colorScore*0.28);
+}
+async function matchPhotoToProducts(dataUrl, minScore=38){
+  const query=await computePhotoFeatures(dataUrl);
+  const results=[];
+  for(const p of state.products){
+    if(!p.photo) continue;
+    const feat=await ensureProductFeatures(p);
+    if(!feat) continue;
+    const score=similarityScore(query, feat);
+    if(score>=minScore) results.push({product:p, score});
+  }
+  results.sort((a,b)=>b.score-a.score);
+  return results.slice(0, 8);
+}
+async function runIdentify(targetAreaId, onSelect){
+  const area=$(targetAreaId);
+  area.hidden=false;
+  area.innerHTML=`<div class="camera-wrap">
+    <video id="identifyVideo" autoplay playsinline style="width:100%;max-width:400px;border-radius:12px"></video>
+    <div class="camera-actions">
+      <button class="btn" id="identifyCapture">Capture & identify</button>
+      <button class="btn secondary" id="identifyCancel">Cancel</button>
+    </div>
+    <p class="hint">Point at the product, then capture. Works best if the product already has a saved photo.</p>
+    <div id="identifyResults"></div>
+  </div>`;
+  let stream=null;
+  try{
+    stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'},audio:false});
+    $('identifyVideo').srcObject=stream;
+  }catch(e){
+    area.innerHTML='<p class="hint">Camera access failed. Allow camera permission, or use "Browse by photo".</p>';
+    return;
+  }
+  const stop=()=>{if(stream){stream.getTracks().forEach(t=>t.stop());stream=null;}};
+  $('identifyCancel').onclick=()=>{stop();area.hidden=true;area.innerHTML='';};
+  $('identifyCapture').onclick=async()=>{
+    const v=$('identifyVideo');
+    if(!v.videoWidth){toast('Camera not ready yet');return;}
+    const c=document.createElement('canvas');
+    c.width=v.videoWidth; c.height=v.videoHeight;
+    c.getContext('2d').drawImage(v,0,0);
+    const raw=c.toDataURL('image/jpeg',0.85);
+    const data=await compressImage(raw, 320, 0.6);
+    $('identifyResults').innerHTML='<p class="hint">Matching against product photos…</p>';
+    try{
+      const matches=await matchPhotoToProducts(data);
+      stop();
+      if(!matches.length){
+        $('identifyResults').innerHTML=`<div class="result"><p>No close match found.</p>
+          <p class="hint">Tips: add clear photos to products first, use similar lighting/angle, fill the frame with the product.</p>
+          <img src="${data}" style="width:100px;height:100px;object-fit:cover;border-radius:8px;margin-top:8px">
+          <div class="actions" style="margin-top:8px"><button class="btn secondary" id="identifyRetry">Try again</button></div></div>`;
+        $('identifyRetry').onclick=()=>runIdentify(targetAreaId, onSelect);
+        return;
+      }
+      $('identifyResults').innerHTML=`<div class="result"><b>Best matches</b>
+        <p class="hint">Tap the correct product. Confidence is approximate.</p>
+        <img src="${data}" style="width:72px;height:72px;object-fit:cover;border-radius:8px;margin:6px 0">
+        <div class="product-card-grid">`+
+        matches.map(m=>`<div class="product-card" data-id="${m.product.id}" style="cursor:pointer">
+          ${m.product.photo?`<img src="${m.product.photo}" alt="">`:`<div style="height:100px;background:#eaf0ec;border-radius:8px"></div>`}
+          <div class="pname">${esc(m.product.name)}</div>
+          <div class="pmeta">${m.score}% match · ${m.product.qty} in stock · ${peso(m.product.price)}</div>
+        </div>`).join('')+
+        `</div>
+        <div class="actions" style="margin-top:8px"><button class="btn secondary" id="identifyRetry">Retake</button>
+        <button class="btn secondary" id="identifyClose">Close</button></div></div>`;
+      area.querySelectorAll('.product-card[data-id]').forEach(card=>{
+        card.onclick=()=>{
+          const id=card.getAttribute('data-id');
+          stop(); area.hidden=true; area.innerHTML='';
+          onSelect(id);
+          toast('Product selected');
+        };
+      });
+      $('identifyRetry').onclick=()=>runIdentify(targetAreaId, onSelect);
+      $('identifyClose').onclick=()=>{stop();area.hidden=true;area.innerHTML='';};
+    }catch(err){
+      $('identifyResults').innerHTML='<p class="hint">Recognition failed. Try again.</p>';
+      console.error(err);
+    }
+  };
+}
+
 $('clearProduct').onclick=clearProduct;
-$('saveProduct').onclick=()=>{
+$('saveProduct').onclick=async()=>{
 const name=$('pName').value.trim(),cost=num($('pCost').value),qty=num($('pQty').value),id=$('editId').value;
 if(!name||$('pCost').value===''||$('pQty').value===''||cost<0||qty<0||!Number.isInteger(qty)){toast('Enter a name, valid cost, and whole-number stock quantity.');return}
 const sku=$('pSku').value.trim(),barcode=$('pBarcode').value.trim();
 if(state.products.some(p=>p.id!==id&&((sku&&p.sku===sku)||(barcode&&p.barcode===barcode)))){toast('That SKU or barcode is already assigned to another product.');return}
 const old=state.products.find(p=>p.id===id);
 const method=$('pMethod').value,pct=num($('pPercent').value),suggest=price(cost,pct,method);
-const p={id:id||uid(),name,category:$('pCategory').value,sku,barcode,cost,qty,reorder:num($('pReorder').value),supplier:$('pSupplier').value.trim(),method,pct,price:Number.isFinite(suggest)?Math.round(suggest*100)/100:cost,updated:new Date().toISOString()};
+const photo=$('pPhoto').value||'';
+const p={id:id||uid(),name,category:$('pCategory').value,sku,barcode,cost,qty,reorder:num($('pReorder').value),supplier:$('pSupplier').value.trim(),method,pct,price:Number.isFinite(suggest)?Math.round(suggest*100)/100:cost,photo,imgFeatures:null,updated:new Date().toISOString()};
+if(photo){
+  try{p.imgFeatures=await computePhotoFeatures(photo);}catch(e){console.warn('feature extract failed',e);}
+}
 if(old){const idx=state.products.indexOf(old);state.products[idx]=p}else state.products.push(p);
-save();clearProduct();toast('Product saved.');
+save();clearProduct();toast(photo?'Product saved with photo recognition data.':'Product saved.');
 };
-function editProduct(id){const p=state.products.find(x=>x.id===id);if(!p)return;showTab('products');$('editId').value=p.id;$('pName').value=p.name;$('pCategory').value=p.category;$('pSku').value=p.sku;$('pBarcode').value=p.barcode;$('pCost').value=p.cost;$('pQty').value=p.qty;$('pReorder').value=p.reorder;$('pSupplier').value=p.supplier;$('pMethod').value=p.method||'markup';$('pPercent').value=p.pct||0;$('productFormTitle').textContent='Edit product';updateSuggested();window.scrollTo({top:0,behavior:'smooth'})}
+function editProduct(id){const p=state.products.find(x=>x.id===id);if(!p)return;showTab('products');$('editId').value=p.id;$('pName').value=p.name;$('pCategory').value=p.category;$('pSku').value=p.sku;$('pBarcode').value=p.barcode;$('pCost').value=p.cost;$('pQty').value=p.qty;$('pReorder').value=p.reorder;$('pSupplier').value=p.supplier;$('pMethod').value=p.method||'markup';$('pPercent').value=p.pct||0;$('productFormTitle').textContent='Edit product';showPhotoPreview(p.photo||null);updateSuggested();window.scrollTo({top:0,behavior:'smooth'})}
 function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
-function renderProducts(){const q=$('productSearch').value.trim().toLowerCase();const ps=state.products.filter(p=>[p.name,p.sku,p.barcode,p.category].some(v=>String(v||'').toLowerCase().includes(q)));$('productRows').innerHTML=ps.map(p=>`<tr><td><b>${esc(p.name)}</b><br><span class="hint">${esc(p.sku||p.barcode||p.category)}</span></td><td>${peso(p.cost)}</td><td>${peso(p.price)}</td><td>${p.qty} ${p.qty<=0?'<span class="pill out">OUT</span>':p.qty<=p.reorder?'<span class="pill low">LOW</span>':''}</td><td><button class="btn small secondary" onclick="editProduct('${p.id}')">Edit</button> <button class="btn small secondary" onclick="chooseSale('${p.id}')">Sell</button> <button class="btn small danger" onclick="deleteProduct('${p.id}')">Delete</button></td></tr>`).join('')||'<tr><td colspan="5" class="empty">No matching products.</td></tr>'}
+function productThumb(p){
+  if(p.photo) return `<img class="thumb" src="${p.photo}" alt="">`;
+  return `<span class="thumb" style="display:inline-flex;align-items:center;justify-content:center;font-size:18px;background:#eaf0ec">📦</span>`;
+}
+function renderProducts(){
+  const q=$('productSearch').value.trim().toLowerCase();
+  const ps=state.products.filter(p=>[p.name,p.sku,p.barcode,p.category].some(v=>String(v||'').toLowerCase().includes(q)));
+  $('productRows').innerHTML=ps.map(p=>`<tr>
+    <td>${productThumb(p)}<b>${esc(p.name)}</b><br><span class="hint">${esc(p.sku||p.barcode||p.category)}</span></td>
+    <td>${peso(p.cost)}</td><td>${peso(p.price)}</td>
+    <td>${p.qty} ${p.qty<=0?'<span class="pill out">OUT</span>':p.qty<=p.reorder?'<span class="pill low">LOW</span>':''}</td>
+    <td><button class="btn small secondary" onclick="editProduct('${p.id}')">Edit</button> <button class="btn small secondary" onclick="chooseSale('${p.id}')">Sell</button> <button class="btn small danger" onclick="deleteProduct('${p.id}')">Delete</button></td>
+  </tr>`).join('')||'<tr><td colspan="5" class="empty">No matching products.</td></tr>';
+}
+function renderPhotoGrid(containerId, onPick){
+  const el=$(containerId);
+  const withPhoto=state.products.filter(p=>p.photo);
+  const rest=state.products.filter(p=>!p.photo);
+  const all=[...withPhoto,...rest];
+  if(!all.length){el.innerHTML='<p class="empty">No products yet. Add products with photos first.</p>';el.hidden=false;return;}
+  el.innerHTML='<div class="product-card-grid">'+all.map(p=>`
+    <div class="product-card" onclick="${onPick}('${p.id}')">
+      ${p.photo?`<img src="${p.photo}" alt="">`:`<div style="height:100px;display:flex;align-items:center;justify-content:center;font-size:36px;background:#eaf0ec;border-radius:8px">📦</div>`}
+      <div class="pname">${esc(p.name)}</div>
+      <div class="pmeta">${p.qty} in stock · ${peso(p.price)}</div>
+    </div>`).join('')+'</div>';
+  el.hidden=false;
+}
 $('productSearch').addEventListener('input',renderProducts);
 function deleteProduct(id){const p=state.products.find(x=>x.id===id);if(p&&confirm(`Delete ${p.name}? Historical sales are retained.`)){state.products=state.products.filter(x=>x.id!==id);save();toast('Product deleted.')}}
 window.editProduct=editProduct;window.deleteProduct=deleteProduct;
 function updateCalculator(){const c=num($('cCost').value),pct=num($('cPercent').value),m=$('cMethod').value,p=price(c,pct,m);$('cPrice').textContent=Number.isFinite(p)?peso(p):'Invalid margin';$('cExplanation').textContent=!Number.isFinite(p)?'Margin must be below 100%.':m==='markup'?`Cost ${peso(c)} + ${pct}% markup = ${peso(p)}.`:`Cost ${peso(c)} ÷ (1 − ${pct/100}) = ${peso(p)}. Gross profit: ${peso(p-c)}.`}
 ['cCost','cPercent','cMethod'].forEach(id=>$(id).addEventListener('input',updateCalculator));
 function findProducts(q){q=String(q||'').trim().toLowerCase();return q?state.products.filter(p=>[p.name,p.sku,p.barcode].some(v=>String(v||'').toLowerCase().includes(q))).slice(0,8):[]}
-$('saleLookup').addEventListener('input',()=>{const a=findProducts($('saleLookup').value);$('saleMatches').innerHTML=a.map(p=>`<button class="btn secondary" style="margin:4px 4px 4px 0" onclick="chooseSale('${p.id}')">${esc(p.name)} · ${p.qty} in stock · ${peso(p.price)}</button>`).join('')||'<p class="hint">Enter a product name, SKU, or barcode.</p>'});
-function chooseSale(id){const p=state.products.find(x=>x.id===id);if(!p)return;selectedSaleId=id;$('saleForm').hidden=false;$('saleProductName').textContent=p.name;$('saleAvailable').textContent=`Available: ${p.qty} · Unit cost ${peso(p.cost)}`;$('saleQty').value=1;$('saleUnitPrice').value=p.price;$('saleDiscount').value=0;$('saleNote').value='';updateSaleTotal();$('saleMatches').innerHTML='';$('saleLookup').value=p.barcode||p.sku||p.name}
+$('saleLookup').addEventListener('input',()=>{
+  const a=findProducts($('saleLookup').value);
+  $('salePhotoBrowse').hidden=true;
+  $('saleMatches').innerHTML=a.map(p=>`<button class="btn secondary" style="margin:4px 4px 4px 0;display:inline-flex;align-items:center;gap:6px" onclick="chooseSale('${p.id}')">${p.photo?`<img src="${p.photo}" style="width:36px;height:36px;object-fit:cover;border-radius:6px">`:''}${esc(p.name)} · ${p.qty} in stock · ${peso(p.price)}</button>`).join('')||'<p class="hint">Type a name, or tap "Pick by photo" to identify visually.</p>';
+});
+function chooseSale(id){
+  const p=state.products.find(x=>x.id===id);if(!p)return;
+  selectedSaleId=id;$('saleForm').hidden=false;
+  const photoHtml=p.photo?`<img src="${p.photo}" style="width:56px;height:56px;object-fit:cover;border-radius:8px;vertical-align:middle;margin-right:8px">`:'';
+  $('saleProductName').innerHTML=photoHtml+esc(p.name);
+  $('saleAvailable').textContent=`Available: ${p.qty} · Unit cost ${peso(p.cost)}`;
+  $('saleQty').value=1;$('saleUnitPrice').value=p.price;$('saleDiscount').value=0;$('saleNote').value='';
+  updateSaleTotal();$('saleMatches').innerHTML='';
+  $('salePhotoBrowse').hidden=true;
+  $('saleLookup').value=p.barcode||p.sku||p.name;
+  showTab('sales');
+}
 window.chooseSale=chooseSale;
 ['saleQty','saleUnitPrice','saleDiscount'].forEach(id=>$(id).addEventListener('input',updateSaleTotal));
 function updateSaleTotal(){const p=state.products.find(x=>x.id===selectedSaleId);if(!p)return;const qty=Math.max(0,num($('saleQty').value)),total=Math.max(0,qty*num($('saleUnitPrice').value)-num($('saleDiscount').value)),profit=total-qty*p.cost;$('saleTotal').textContent=peso(total);$('saleProfit').textContent='Estimated gross profit: '+peso(profit)}
@@ -163,8 +514,80 @@ $('clearData').onclick=()=>{if(confirm('Permanently delete all products and sale
 async function startScan(){const area=$('scanArea');if(!('BarcodeDetector'in window)){area.innerHTML='<p class="hint">This browser does not support built-in camera barcode scanning. Use a Bluetooth/USB scanner or type the barcode in the search box.</p>';return}try{scanStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}});area.innerHTML='<video id="scanVideo" autoplay playsinline style="width:100%;max-width:400px;border-radius:12px;margin-top:10px"></video><p class="hint">Point the camera at a barcode.</p>';const v=$('scanVideo');v.srcObject=scanStream;const detector=new BarcodeDetector();$('cameraScan').hidden=true;$('stopScan').hidden=false;const tick=async()=>{if(!scanStream)return;try{const codes=await detector.detect(v);if(codes.length){$('productSearch').value=codes[0].rawValue;renderProducts();stopScan();toast('Barcode found.')}}catch(e){}scanTimer=setTimeout(tick,300)};v.onloadedmetadata=()=>tick()}catch(e){area.innerHTML='<p class="hint">Camera access failed. Allow camera permission or use a barcode scanner/manual entry.</p>'}}
 function stopScan(){if(scanTimer)clearTimeout(scanTimer);if(scanStream){scanStream.getTracks().forEach(t=>t.stop());scanStream=null}$('cameraScan').hidden=false;$('stopScan').hidden=true}
 $('cameraScan').onclick=startScan;$('stopScan').onclick=stopScan;
-window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredInstall=e;$('installApp').hidden=false});
-$('installApp').onclick=async()=>{if(deferredInstall){deferredInstall.prompt();await deferredInstall.userChoice;deferredInstall=null;$('installApp').hidden=true}else toast('Use your browser menu and choose Add to Home screen.')};
+
+/* ---- Product photo capture ---- */
+$('takePhotoBtn').onclick=()=>startPhotoCamera();
+$('pickPhotoBtn').onclick=()=>$('photoFile').click();
+$('clearPhotoBtn').onclick=()=>showPhotoPreview(null);
+$('photoFile').onchange=async e=>{
+  const f=e.target.files&&e.target.files[0];
+  if(!f)return;
+  try{
+    const data=await compressImage(f);
+    showPhotoPreview(data);
+    toast('Photo added');
+  }catch(err){toast('Could not load image');}
+  e.target.value='';
+};
+
+/* ---- Browse products by photo ---- */
+$('viewByPhoto').onclick=()=>{
+  const area=$('photoBrowse');
+  if(!area.hidden && area.innerHTML){area.hidden=true;area.innerHTML='';return;}
+  $('scanArea').innerHTML='';
+  $('identifyArea').hidden=true;$('identifyArea').innerHTML='';
+  stopScan();
+  renderPhotoGrid('photoBrowse','editProduct');
+};
+$('identifyProduct').onclick=()=>{
+  $('photoBrowse').hidden=true;$('photoBrowse').innerHTML='';
+  $('scanArea').innerHTML='';
+  stopScan();
+  const withPhotos=state.products.filter(p=>p.photo).length;
+  if(!withPhotos){toast('Add product photos first so the app has images to match against.');return;}
+  runIdentify('identifyArea', (id)=>editProduct(id));
+};
+if($('saleBrowsePhoto')){
+  $('saleBrowsePhoto').onclick=()=>{
+    const area=$('salePhotoBrowse');
+    if(!area.hidden && area.innerHTML){area.hidden=true;area.innerHTML='';return;}
+    $('saleMatches').innerHTML='';
+    if($('saleIdentifyArea')){$('saleIdentifyArea').hidden=true;$('saleIdentifyArea').innerHTML='';}
+    renderPhotoGrid('salePhotoBrowse','chooseSale');
+  };
+}
+if($('saleIdentify')){
+  $('saleIdentify').onclick=()=>{
+    $('salePhotoBrowse').hidden=true;$('salePhotoBrowse').innerHTML='';
+    $('saleMatches').innerHTML='';
+    const withPhotos=state.products.filter(p=>p.photo).length;
+    if(!withPhotos){toast('Add product photos first so recognition can work.');return;}
+    runIdentify('saleIdentifyArea', (id)=>chooseSale(id));
+  };
+}
+
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  deferredInstall = e;
+  $('installApp').hidden = false;
+  toast('App is ready to install — tap Install app');
+});
+$('installApp').onclick = async () => {
+  if (deferredInstall) {
+    deferredInstall.prompt();
+    const choice = await deferredInstall.userChoice;
+    deferredInstall = null;
+    $('installApp').hidden = true;
+    if (choice.outcome === 'accepted') toast('App installed');
+  } else {
+    toast('Use Chrome menu (⋮) → Install app or Add to Home screen');
+  }
+};
+window.addEventListener('appinstalled', () => {
+  deferredInstall = null;
+  $('installApp').hidden = true;
+  toast('Kareth Store Manager installed');
+});
 function isoToday(){return new Date().toISOString().slice(0,10)}
 function plusDays(date,days){const d=new Date((date||isoToday())+'T12:00:00');d.setDate(d.getDate()+days);return d.toISOString().slice(0,10)}
 function creditBalance(c){return Math.max(0,Number(c.amount||0)-Number(c.paid||0))}
@@ -176,8 +599,27 @@ $('crAdd').onclick=()=>{const customer=$('crCustomer').value.trim(),phone=$('crP
 $('crPay').onclick=()=>{const c=state.credits.find(x=>x.id===$('crPayAccount').value),amount=num($('crPayAmount').value);if(!c){toast('Select a customer credit record.');return}if(amount<=0||amount>creditBalance(c)){toast('Enter a payment greater than zero and no more than the remaining balance.');return}c.paid=Number(c.paid||0)+amount;c.payments=c.payments||[];c.payments.push({date:isoToday(),amount,note:$('crPayNote').value.trim()});save();$('crPayAmount').value='';$('crPayNote').value='';toast('Payment recorded. Remaining balance: '+peso(creditBalance(c)))};
 function renderAll(){renderProducts();renderSales();renderDashboard();runReport();if($('credit'))renderCredit()}
 load();renderAll();updateCalculator();updateSuggested();
-$('offlineStatus').textContent=('serviceWorker'in navigator)?'Service worker supported. Install while online from an HTTPS site, then reopen once to cache the app.':'This browser does not support service workers; local data may still work, but offline app-shell caching is unavailable.';
-if('serviceWorker'in navigator&&location.protocol.startsWith('http'))navigator.serviceWorker.register('./sw.js').catch(()=>{$('offlineStatus').textContent='Could not register offline cache. Use HTTPS or localhost.'});
+(function(){
+  const status = $('offlineStatus');
+  const isSecure = location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+  if (!('serviceWorker' in navigator)) {
+    status.textContent = 'This browser does not support service workers. Local data still works, but offline install is unavailable.';
+    return;
+  }
+  if (!isSecure) {
+    status.textContent = 'Not on HTTPS. Open this site via a GitHub Pages HTTPS link (or localhost). file:// and plain HTTP cannot install as an app.';
+    return;
+  }
+  status.textContent = 'Registering service worker…';
+  navigator.serviceWorker.register('./sw.js')
+    .then(reg => {
+      status.textContent = 'Service worker active. If the Install button does not appear, use Chrome menu → Install app / Add to Home screen.';
+      reg.update();
+    })
+    .catch(err => {
+      status.textContent = 'Could not register service worker: ' + (err && err.message ? err.message : 'unknown error') + '. Check that sw.js is in the same folder and the site is on HTTPS.';
+    });
+})();
 </script>
 </body>
 </html>
