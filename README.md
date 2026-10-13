@@ -1,4 +1,4 @@
-# Kareth Trading & Manufacturing Co. (PWA)
+# Kareth Store Manager (PWA)
 
 Upload these files to a GitHub repository and enable GitHub Pages.
 

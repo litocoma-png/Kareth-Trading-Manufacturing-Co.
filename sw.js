@@ -1,11 +1,12 @@
-const CACHE_NAME = "kareth-store-shell-v6";
+const CACHE_NAME = "kareth-store-shell-v7";
 const APP_FILES = [
   "./",
   "./index.html",
   "./manifest.webmanifest",
   "./icon-192.png",
   "./icon-512.png",
-  "./icon-180.png"
+  "./icon-180.png",
+  "./icon-512-maskable.png"
 ];
 
 self.addEventListener("install", event => {
