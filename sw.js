@@ -1,4 +1,4 @@
-const CACHE_NAME = "kareth-store-shell-v7";
+const CACHE_NAME = "kareth-store-shell-v9";
 const APP_FILES = [
   "./",
   "./index.html",

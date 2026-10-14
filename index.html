@@ -14,7 +14,7 @@
 <link rel="icon" type="image/png" sizes="512x512" href="./icon-512.png">
 <link rel="apple-touch-icon" sizes="180x180" href="./icon-180.png">
 <link rel="apple-touch-icon" href="./icon-192.png">
-<title>Kareth Trading & Manufacturing Co.</title>
+<title>Kareth Store Manager</title>
 <style>
 :root{--green:#123b32;--green2:#1c6653;--bg:#f3f6f4;--card:#fff;--ink:#17211e;--muted:#65716c;--line:#dce5df;--red:#b42318;--amber:#986300}
 *{box-sizing:border-box}body{margin:0;font:15px system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--ink)}
@@ -49,9 +49,9 @@ footer{text-align:center;color:var(--muted);font-size:11px;padding:20px}
 </style>
 </head>
 <body>
-<header><h1>🧰 Kareth Trading & Manufacturing Co.</h1><p> Convenience Store · Offline-first · PHP (₱)</p></header>
+<header><h1>🧰 Kareth Store Manager</h1><p>Hardware + Convenience Store · Offline-first · PHP (₱)</p></header>
 <nav id="nav">
-<button class="active" data-tab="dashboard">Dashboard</button><button data-tab="products">Products</button><button data-tab="pricing">Price Calculator</button><button data-tab="sales">Record Sale</button><button data-tab="credit">Credit Line (7 Days)</button><button data-tab="reports">Reports</button><button data-tab="backup">Backup & Settings</button>
+<button class="active" data-tab="dashboard">Dashboard</button><button data-tab="products">Products</button><button data-tab="pricing">Price Calculator</button><button data-tab="sales">Record Sale</button><button data-tab="credit">Customer Credit</button><button data-tab="reports">Reports</button><button data-tab="backup">Backup & Settings</button>
 </nav>
 <main>
 <section id="dashboard" class="panel active">
@@ -86,11 +86,13 @@ footer{text-align:center;color:var(--muted);font-size:11px;padding:20px}
   <input type="hidden" id="pPhoto">
   <div class="actions">
     <button type="button" class="btn secondary" id="takePhotoBtn">📷 Take photo</button>
-    <button type="button" class="btn secondary" id="pickPhotoBtn">🖼 Choose image</button>
+    <button type="button" class="btn secondary" id="pickPhotoBtn">🖼 Choose from library</button>
     <button type="button" class="btn danger small" id="clearPhotoBtn" hidden>Remove photo</button>
   </div>
-  <input type="file" id="photoFile" accept="image/*" capture="environment" hidden>
+  <input type="file" id="photoFileCamera" accept="image/*" capture="environment" hidden>
+  <input type="file" id="photoFileLibrary" accept="image/*" hidden>
   <div id="photoCameraArea"></div>
+  <p class="hint">Take photo uses the camera. Choose from library opens your gallery.</p>
 </div>
 
 <div class="actions"><button class="btn" id="saveProduct">Save product</button><button class="btn secondary" id="clearProduct">Clear form</button></div>
@@ -134,15 +136,73 @@ footer{text-align:center;color:var(--muted);font-size:11px;padding:20px}
 <div class="card"><h2>Recent sales</h2><div class="tablewrap"><table><thead><tr><th>Date / time</th><th>Product</th><th>Qty</th><th>Total</th><th>Gross profit</th></tr></thead><tbody id="recentSales"></tbody></table></div></div>
 </section>
 <section id="credit" class="panel">
-<div class="card"><h2>Customer credit line · 7-day payment</h2><p class="hint">Record credit given to a customer, set a customer credit limit, and record partial or full payments. Due date is 7 days after the credit date. Keep a separate written receipt for important transactions.</p>
-<div class="formgrid"><div><label for="crCustomer">Customer name *</label><input id="crCustomer" placeholder="Customer full name"></div><div><label for="crPhone">Contact number</label><input id="crPhone" placeholder="Optional phone number"></div><div><label for="crLimit">Customer credit limit (₱) *</label><input id="crLimit" type="number" min="0" step=".01" value="2000"></div><div><label for="crAmount">New credit amount (₱) *</label><input id="crAmount" type="number" min=".01" step=".01" placeholder="0.00"></div><div><label for="crDate">Credit date</label><input id="crDate" type="date"></div><div><label for="crNote">Items / reference</label><input id="crNote" placeholder="e.g. cement, groceries, receipt no."></div></div>
-<div class="result"><div class="hint">Due date</div><strong id="crDuePreview">Choose a credit date</strong><div class="hint" id="crLimitPreview">Enter customer and amount to check available credit.</div></div><div class="actions"><button class="btn" id="crAdd">Record credit</button></div></div>
-<div class="card"><h2>Record customer payment</h2><label for="crPayAccount">Customer / credit record</label><select id="crPayAccount"><option value="">Select an outstanding credit</option></select><label for="crPayAmount">Payment received (₱)</label><input id="crPayAmount" type="number" min=".01" step=".01" placeholder="0.00"><label for="crPayNote">Payment reference</label><input id="crPayNote" placeholder="Optional receipt / note"><button class="btn" id="crPay">Record payment</button></div>
-<div class="card"><h2>Credit summary</h2><div class="grid"><div class="stat"><small>Total outstanding</small><strong id="crOutstanding">₱0.00</strong></div><div class="stat"><small>Due soon (next 2 days)</small><strong id="crDueSoon">₱0.00</strong></div><div class="stat"><small>Overdue</small><strong id="crOverdue">₱0.00</strong></div></div><div class="tablewrap"><table><thead><tr><th>Customer</th><th>Credit date</th><th>Due date</th><th>Limit</th><th>Original</th><th>Paid</th><th>Balance</th><th>Status</th><th>Payments</th></tr></thead><tbody id="creditRows"></tbody></table></div></div>
+<div class="card"><h2>Credit summary</h2>
+<p class="hint">Overview of products customers bought on credit (pay within 7 days).</p>
+<div class="grid">
+  <div class="stat"><small>Total outstanding</small><strong id="crOutstanding">₱0.00</strong></div>
+  <div class="stat"><small>Due soon (next 2 days)</small><strong id="crDueSoon">₱0.00</strong></div>
+  <div class="stat"><small>Overdue</small><strong id="crOverdue">₱0.00</strong></div>
+</div>
+</div>
+
+<div class="card"><h2>Record product purchase on credit</h2>
+<p class="hint">When a customer takes products now and pays later (7 days). Optionally pick a product from your inventory to fill the amount. Stock is not deducted here — use Record Sale for paid sales, or note credit purchases separately.</p>
+<div class="formgrid">
+  <div><label for="crCustomer">Customer name *</label><input id="crCustomer" placeholder="Customer full name"></div>
+  <div><label for="crPhone">Contact number</label><input id="crPhone" placeholder="Optional phone number"></div>
+  <div><label for="crProductPick">Product purchased (from inventory)</label>
+    <select id="crProductPick"><option value="">— Type products below, or pick one —</option></select>
+  </div>
+  <div><label for="crQty">Quantity</label><input id="crQty" type="number" min="1" step="1" value="1"></div>
+  <div><label for="crNote">Products / items purchased *</label><input id="crNote" placeholder="e.g. 2 sacks cement, dishwashing liquid"></div>
+  <div><label for="crAmount">Total amount (₱) *</label><input id="crAmount" type="number" min=".01" step=".01" placeholder="0.00"></div>
+  <div><label for="crLimit">Customer credit limit (₱) *</label><input id="crLimit" type="number" min="0" step=".01" value="2000"></div>
+  <div><label for="crDate">Purchase date</label><input id="crDate" type="date"></div>
+</div>
+<div class="result">
+  <div class="hint">Payment due date (7 days)</div>
+  <strong id="crDuePreview">Choose a purchase date</strong>
+  <div class="hint" id="crLimitPreview">Enter customer and amount to check available credit.</div>
+</div>
+<div class="actions"><button class="btn" id="crAdd">Save credit purchase</button></div>
+</div>
+
+<div class="card"><h2>Record customer payment</h2>
+<label for="crPayAccount">Outstanding credit purchase</label>
+<select id="crPayAccount"><option value="">Select a customer credit purchase</option></select>
+<label for="crPayAmount">Payment received (₱)</label>
+<input id="crPayAmount" type="number" min=".01" step=".01" placeholder="0.00">
+<label for="crPayNote">Payment reference</label>
+<input id="crPayNote" placeholder="Optional receipt / note">
+<button class="btn" id="crPay">Record payment</button>
+</div>
+
+<div class="card"><h2>Credit purchases list</h2>
+<div class="tablewrap"><table><thead><tr>
+<th>Customer</th><th>Products purchased</th><th>Purchase date</th><th>Due date</th><th>Limit</th><th>Amount</th><th>Paid</th><th>Balance</th><th>Status</th><th>Payments</th>
+</tr></thead><tbody id="creditRows"></tbody></table></div>
+</div>
 </section>
 <section id="reports" class="panel">
-<div class="card"><h2>Sales & inventory reports</h2><div class="row"><div><label for="reportFrom">From date</label><input id="reportFrom" type="date"></div><div><label for="reportTo">To date</label><input id="reportTo" type="date"></div></div><div class="actions"><button class="btn" id="runReport">Generate report</button><button class="btn secondary" id="exportCsv">Export sales CSV</button></div>
-<div class="grid" style="margin-top:12px"><div class="stat"><small>Sales revenue</small><strong id="rRevenue">₱0.00</strong></div><div class="stat"><small>Estimated gross profit</small><strong id="rProfit">₱0.00</strong></div><div class="stat"><small>Items sold</small><strong id="rUnits">0</strong></div><div class="stat"><small>Transactions</small><strong id="rTransactions">0</strong></div></div></div>
+<div class="card"><h2>Sales & inventory reports</h2>
+<p class="hint">Choose a date range, then tap Generate report. Use <b>All time</b> if you want every sale ever recorded on this phone.</p>
+<div class="row"><div><label for="reportFrom">From date</label><input id="reportFrom" type="date"></div><div><label for="reportTo">To date</label><input id="reportTo" type="date"></div></div>
+<div class="actions">
+  <button class="btn" id="runReport">Generate report</button>
+  <button class="btn secondary" id="reportToday">Today</button>
+  <button class="btn secondary" id="report7">Last 7 days</button>
+  <button class="btn secondary" id="report30">Last 30 days</button>
+  <button class="btn secondary" id="reportAll">All time</button>
+  <button class="btn secondary" id="exportCsv">Export sales CSV</button>
+</div>
+<div class="grid" style="margin-top:12px">
+  <div class="stat"><small>Sales revenue</small><strong id="rRevenue">₱0.00</strong></div>
+  <div class="stat"><small>Estimated gross profit</small><strong id="rProfit">₱0.00</strong></div>
+  <div class="stat"><small>Items sold</small><strong id="rUnits">0</strong></div>
+  <div class="stat"><small>Transactions</small><strong id="rTransactions">0</strong></div>
+</div>
+<p class="hint" id="reportHint" style="margin-top:10px"></p>
+</div>
 <div class="card"><h2>Current stock valuation</h2><div id="stockReport" class="tablewrap"></div></div>
 <div class="card"><h2>Sales by product</h2><div id="productReport" class="tablewrap"></div></div>
 </section>
@@ -502,10 +562,92 @@ function updateSaleTotal(){const p=state.products.find(x=>x.id===selectedSaleId)
 $('cancelSale').onclick=()=>{$('saleForm').hidden=true;selectedSaleId=null};
 $('completeSale').onclick=()=>{const p=state.products.find(x=>x.id===selectedSaleId),qty=num($('saleQty').value),unit=num($('saleUnitPrice').value),discount=num($('saleDiscount').value);if(!p)return;if(!Number.isInteger(qty)||qty<1||qty>p.qty){toast('Quantity must be a whole number within available stock.');return}if(unit<0||discount<0||discount>qty*unit){toast('Check selling price and discount.');return}const total=qty*unit-discount;const s={id:uid(),date:new Date().toISOString(),productId:p.id,productName:p.name,qty,unitPrice:unit,discount,total,costAtSale:p.cost,profit:total-qty*p.cost,note:$('saleNote').value.trim()};p.qty-=qty;state.sales.unshift(s);save();$('saleForm').hidden=true;selectedSaleId=null;$('saleLookup').value='';$('saleMatches').innerHTML='';toast('Sale recorded and stock updated.')};
 function renderSales(){const rows=state.sales.slice(0,20);$('recentSales').innerHTML=rows.map(s=>`<tr><td>${moneyDate(s.date)}</td><td>${esc(s.productName)}${s.note?'<br><span class="hint">'+esc(s.note)+'</span>':''}</td><td>${s.qty}</td><td>${peso(s.total)}</td><td>${peso(s.profit)}</td></tr>`).join('')||'<tr><td colspan="5" class="empty">No sales recorded yet.</td></tr>'}
-function renderDashboard(){const todaySales=state.sales.filter(s=>s.date.slice(0,10)===today());$('statProducts').textContent=state.products.length;$('statUnits').textContent=state.products.reduce((a,p)=>a+p.qty,0).toLocaleString('en-PH');$('statValue').textContent=peso(state.products.reduce((a,p)=>a+p.cost*p.qty,0));$('statSales').textContent=peso(todaySales.reduce((a,s)=>a+s.total,0));const low=state.products.filter(p=>p.qty<=p.reorder);$('lowStock').innerHTML=low.map(p=>`<div style="padding:8px 0;border-bottom:1px solid var(--line)"><b>${esc(p.name)}</b> — ${p.qty} left ${p.qty===0?'<span class="pill out">OUT OF STOCK</span>':'<span class="pill low">LOW STOCK</span>'}</div>`).join('')||'<div class="empty">No low-stock products. Add products to start monitoring.</div>'}
-function renderStockReport(){$('stockReport').innerHTML='<table><thead><tr><th>Product</th><th>Qty</th><th>Cost value</th><th>Potential sales</th></tr></thead><tbody>'+state.products.map(p=>`<tr><td>${esc(p.name)}</td><td>${p.qty}</td><td>${peso(p.qty*p.cost)}</td><td>${peso(p.qty*p.price)}</td></tr>`).join('')+'</tbody></table>'}
-function runReport(){const from=$('reportFrom').value||'0000-01-01',to=$('reportTo').value||'9999-12-31';const sales=state.sales.filter(s=>s.date.slice(0,10)>=from&&s.date.slice(0,10)<=to);$('rRevenue').textContent=peso(sales.reduce((a,s)=>a+s.total,0));$('rProfit').textContent=peso(sales.reduce((a,s)=>a+s.profit,0));$('rUnits').textContent=sales.reduce((a,s)=>a+s.qty,0);$('rTransactions').textContent=sales.length;const by={};sales.forEach(s=>{const k=s.productName;by[k]??={qty:0,total:0,profit:0};by[k].qty+=s.qty;by[k].total+=s.total;by[k].profit+=s.profit});$('productReport').innerHTML='<table><thead><tr><th>Product</th><th>Qty sold</th><th>Revenue</th><th>Gross profit</th></tr></thead><tbody>'+Object.entries(by).map(([k,v])=>`<tr><td>${esc(k)}</td><td>${v.qty}</td><td>${peso(v.total)}</td><td>${peso(v.profit)}</td></tr>`).join('')+'</tbody></table>';$('productReport').querySelector('tbody').innerHTML ||= '<tr><td colspan="4">No sales for this period.</td></tr>';renderStockReport()}
-$('runReport').onclick=runReport;$('reportFrom').value=today();$('reportTo').value=today();
+function renderDashboard(){const todaySales=state.sales.filter(s=>saleDateKey(s)===today());$('statProducts').textContent=state.products.length;$('statUnits').textContent=state.products.reduce((a,p)=>a+p.qty,0).toLocaleString('en-PH');$('statValue').textContent=peso(state.products.reduce((a,p)=>a+p.cost*p.qty,0));$('statSales').textContent=peso(todaySales.reduce((a,s)=>a+s.total,0));const low=state.products.filter(p=>p.qty<=p.reorder);$('lowStock').innerHTML=low.map(p=>`<div style="padding:8px 0;border-bottom:1px solid var(--line)"><b>${esc(p.name)}</b> — ${p.qty} left ${p.qty===0?'<span class="pill out">OUT OF STOCK</span>':'<span class="pill low">LOW STOCK</span>'}</div>`).join('')||'<div class="empty">No low-stock products. Add products to start monitoring.</div>'}
+function saleDateKey(s){
+  // Normalize sale date to YYYY-MM-DD (handles ISO strings)
+  if(!s||!s.date) return '';
+  const d=String(s.date);
+  if(d.length>=10) return d.slice(0,10);
+  try{return new Date(d).toISOString().slice(0,10);}catch(e){return '';}
+}
+function daysAgo(n){
+  const d=new Date();
+  d.setDate(d.getDate()-n);
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+function renderStockReport(){
+  const el=$('stockReport');
+  if(!el) return;
+  if(!state.products.length){
+    el.innerHTML='<p class="empty">No products yet. Add products in the Products tab first.</p>';
+    return;
+  }
+  const rows=state.products.map(p=>`<tr><td>${esc(p.name)}</td><td>${p.qty}</td><td>${peso(p.qty*p.cost)}</td><td>${peso(p.qty*p.price)}</td></tr>`).join('');
+  el.innerHTML='<table><thead><tr><th>Product</th><th>Qty</th><th>Cost value</th><th>Potential sales</th></tr></thead><tbody>'+rows+'</tbody></table>';
+}
+function runReport(){
+  const fromEl=$('reportFrom'), toEl=$('reportTo'), hint=$('reportHint');
+  if(!fromEl||!toEl) return;
+  // Empty from/to means all time
+  const from=fromEl.value || '0000-01-01';
+  const to=toEl.value || '9999-12-31';
+  const allSales=Array.isArray(state.sales)?state.sales:[];
+  const sales=allSales.filter(s=>{
+    const key=saleDateKey(s);
+    return key && key>=from && key<=to;
+  });
+  $('rRevenue').textContent=peso(sales.reduce((a,s)=>a+(Number(s.total)||0),0));
+  $('rProfit').textContent=peso(sales.reduce((a,s)=>a+(Number(s.profit)||0),0));
+  $('rUnits').textContent=sales.reduce((a,s)=>a+(Number(s.qty)||0),0);
+  $('rTransactions').textContent=sales.length;
+  const by={};
+  sales.forEach(s=>{
+    const k=s.productName||'Unknown';
+    by[k]??={qty:0,total:0,profit:0};
+    by[k].qty+=Number(s.qty)||0;
+    by[k].total+=Number(s.total)||0;
+    by[k].profit+=Number(s.profit)||0;
+  });
+  const prodEl=$('productReport');
+  if(prodEl){
+    if(!sales.length){
+      const totalEver=allSales.length;
+      prodEl.innerHTML=`<p class="empty">No sales in this date range.`+
+        (totalEver?` You have <b>${totalEver}</b> sale(s) stored — try <b>All time</b> or a wider range.`:
+        ` Record a sale in the <b>Record Sale</b> tab first.`)+`</p>`;
+    } else {
+      const body=Object.entries(by).map(([k,v])=>`<tr><td>${esc(k)}</td><td>${v.qty}</td><td>${peso(v.total)}</td><td>${peso(v.profit)}</td></tr>`).join('');
+      prodEl.innerHTML='<table><thead><tr><th>Product</th><th>Qty sold</th><th>Revenue</th><th>Gross profit</th></tr></thead><tbody>'+body+'</tbody></table>';
+    }
+  }
+  if(hint){
+    if(!allSales.length && !state.products.length){
+      hint.textContent='No data yet. Add products, then record sales — reports will fill in automatically.';
+    } else if(!sales.length && allSales.length){
+      hint.textContent=`Showing 0 of ${allSales.length} total sale(s). Widen the date range or tap All time.`;
+    } else if(sales.length){
+      const label=(fromEl.value&&toEl.value)?`${fromEl.value} → ${toEl.value}`:(!fromEl.value&&!toEl.value)?'All time':`${from} → ${to}`;
+      hint.textContent=`Showing ${sales.length} sale(s) for ${label}.`;
+    } else {
+      hint.textContent='';
+    }
+  }
+  renderStockReport();
+}
+function setReportRange(from,to){
+  $('reportFrom').value=from||'';
+  $('reportTo').value=to||'';
+  runReport();
+}
+$('runReport').onclick=runReport;
+// Default: last 30 days so reports are more likely to show data
+$('reportFrom').value=daysAgo(30);
+$('reportTo').value=today();
+if($('reportToday')) $('reportToday').onclick=()=>setReportRange(today(),today());
+if($('report7')) $('report7').onclick=()=>setReportRange(daysAgo(7),today());
+if($('report30')) $('report30').onclick=()=>setReportRange(daysAgo(30),today());
+if($('reportAll')) $('reportAll').onclick=()=>setReportRange('','');
+
 function download(name,content,type){const a=document.createElement('a'),url=URL.createObjectURL(new Blob([content],{type}));a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000)}
 $('exportBackup').onclick=()=>download('kareth-store-backup-'+today()+'.json',JSON.stringify({...state,exportedAt:new Date().toISOString(),app:'Kareth Store Manager'},null,2),'application/json');
 $('importFile').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const x=JSON.parse(await f.text());if(!Array.isArray(x.products)||!Array.isArray(x.sales))throw Error('Invalid');x.credits=Array.isArray(x.credits)?x.credits:[];if(!confirm('Replace all current local records with this backup?'))return;state={products:x.products,sales:x.sales,credits:x.credits};save();toast('Backup restored.');}catch(err){toast('Could not restore: invalid backup file.')}finally{e.target.value=''}};
@@ -516,16 +658,34 @@ function stopScan(){if(scanTimer)clearTimeout(scanTimer);if(scanStream){scanStre
 $('cameraScan').onclick=startScan;$('stopScan').onclick=stopScan;
 
 /* ---- Product photo capture ---- */
-$('takePhotoBtn').onclick=()=>startPhotoCamera();
-$('pickPhotoBtn').onclick=()=>$('photoFile').click();
+$('takePhotoBtn').onclick=()=>{
+  // Prefer live camera UI; fallback to file input with capture
+  if(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia){
+    startPhotoCamera();
+  } else {
+    $('photoFileCamera').click();
+  }
+};
+$('pickPhotoBtn').onclick=()=>$('photoFileLibrary').click();
 $('clearPhotoBtn').onclick=()=>showPhotoPreview(null);
-$('photoFile').onchange=async e=>{
+async function handlePhotoFile(e){
   const f=e.target.files&&e.target.files[0];
   if(!f)return;
   try{
     const data=await compressImage(f);
     showPhotoPreview(data);
-    toast('Photo added');
+    toast('Photo added from library');
+  }catch(err){toast('Could not load image');}
+  e.target.value='';
+}
+$('photoFileLibrary').onchange=handlePhotoFile;
+$('photoFileCamera').onchange=async e=>{
+  const f=e.target.files&&e.target.files[0];
+  if(!f)return;
+  try{
+    const data=await compressImage(f);
+    showPhotoPreview(data);
+    toast('Photo captured');
   }catch(err){toast('Could not load image');}
   e.target.value='';
 };
@@ -593,10 +753,90 @@ function plusDays(date,days){const d=new Date((date||isoToday())+'T12:00:00');d.
 function creditBalance(c){return Math.max(0,Number(c.amount||0)-Number(c.paid||0))}
 function dateLabel(d){return d?new Date(d+'T12:00:00').toLocaleDateString('en-PH',{year:'numeric',month:'short',day:'numeric'}):'—'}
 function creditStatus(c){const b=creditBalance(c);if(b<=0)return 'PAID';if(c.due<isoToday())return 'OVERDUE';if(c.due<=plusDays(isoToday(),2))return 'DUE SOON';return 'UNPAID'}
-function renderCredit(){if(!$('crDate'))return;const date=$('crDate').value||isoToday();$('crDuePreview').textContent=dateLabel(plusDays(date,7));const customer=$('crCustomer').value.trim(),amount=num($('crAmount').value),limit=num($('crLimit').value);const owed=state.credits.filter(c=>c.customer.toLowerCase()===customer.toLowerCase()).reduce((a,c)=>a+creditBalance(c),0);$('crLimitPreview').textContent=customer?`Existing balance ${peso(owed)} · Available credit ${peso(Math.max(0,limit-owed))}`:'Enter customer and amount to check available credit.';const active=state.credits.filter(c=>creditBalance(c)>0);$('crPayAccount').innerHTML='<option value="">Select an outstanding credit</option>'+active.map(c=>`<option value="${c.id}">${esc(c.customer)} · balance ${peso(creditBalance(c))} · due ${dateLabel(c.due)}</option>`).join('');$('crOutstanding').textContent=peso(active.reduce((a,c)=>a+creditBalance(c),0));$('crDueSoon').textContent=peso(active.filter(c=>c.due>=isoToday()&&c.due<=plusDays(isoToday(),2)).reduce((a,c)=>a+creditBalance(c),0));$('crOverdue').textContent=peso(active.filter(c=>c.due<isoToday()).reduce((a,c)=>a+creditBalance(c),0));$('creditRows').innerHTML=state.credits.slice().reverse().map(c=>`<tr><td>${esc(c.customer)}${c.phone?'<br><span class="hint">'+esc(c.phone)+'</span>':''}<br><span class="hint">${esc(c.note||'')}</span></td><td>${dateLabel(c.date)}</td><td>${dateLabel(c.due)}</td><td>${peso(c.limit)}</td><td>${peso(c.amount)}</td><td>${peso(c.paid)}</td><td><b>${peso(creditBalance(c))}</b></td><td>${creditStatus(c)}</td><td>${(c.payments||[]).map(p=>`${dateLabel(p.date)}: ${peso(p.amount)}${p.note?' ('+esc(p.note)+')':''}`).join('<br>')||'—'}</td></tr>`).join('')||'<tr><td colspan="9" class="empty">No credit records yet.</td></tr>'}
-['crCustomer','crAmount','crLimit','crDate'].forEach(id=>$(id).addEventListener('input',renderCredit));$('crDate').value=isoToday();
-$('crAdd').onclick=()=>{const customer=$('crCustomer').value.trim(),phone=$('crPhone').value.trim(),limit=num($('crLimit').value),amount=num($('crAmount').value),date=$('crDate').value||isoToday(),note=$('crNote').value.trim();if(!customer||limit<0||amount<=0){toast('Enter customer name, valid credit limit, and credit amount.');return}const owed=state.credits.filter(c=>c.customer.toLowerCase()===customer.toLowerCase()).reduce((a,c)=>a+creditBalance(c),0);if(owed+amount>limit){toast(`Credit exceeds this customer's limit. Available: ${peso(Math.max(0,limit-owed))}`);return}state.credits.push({id:uid(),customer,phone,limit,amount,paid:0,date,due:plusDays(date,7),note,payments:[]});save();$('crAmount').value='';$('crNote').value='';toast('7-day credit recorded. Due '+dateLabel(plusDays(date,7))+'.');showTab('credit')};
-$('crPay').onclick=()=>{const c=state.credits.find(x=>x.id===$('crPayAccount').value),amount=num($('crPayAmount').value);if(!c){toast('Select a customer credit record.');return}if(amount<=0||amount>creditBalance(c)){toast('Enter a payment greater than zero and no more than the remaining balance.');return}c.paid=Number(c.paid||0)+amount;c.payments=c.payments||[];c.payments.push({date:isoToday(),amount,note:$('crPayNote').value.trim()});save();$('crPayAmount').value='';$('crPayNote').value='';toast('Payment recorded. Remaining balance: '+peso(creditBalance(c)))};
+function fillCreditProductSelect(){
+  const sel=$('crProductPick');
+  if(!sel) return;
+  const cur=sel.value;
+  sel.innerHTML='<option value="">— Type products below, or pick one —</option>'+
+    state.products.map(p=>`<option value="${p.id}">${esc(p.name)} · ${peso(p.price)} · stock ${p.qty}</option>`).join('');
+  if(cur) sel.value=cur;
+}
+function renderCredit(){
+  if(!$('crDate'))return;
+  fillCreditProductSelect();
+  const date=$('crDate').value||isoToday();
+  $('crDuePreview').textContent=dateLabel(plusDays(date,7));
+  const customer=$('crCustomer').value.trim(),amount=num($('crAmount').value),limit=num($('crLimit').value);
+  const owed=state.credits.filter(c=>c.customer.toLowerCase()===customer.toLowerCase()).reduce((a,c)=>a+creditBalance(c),0);
+  $('crLimitPreview').textContent=customer?`Existing balance ${peso(owed)} · Available credit ${peso(Math.max(0,limit-owed))}`:'Enter customer and amount to check available credit.';
+  const active=state.credits.filter(c=>creditBalance(c)>0);
+  $('crPayAccount').innerHTML='<option value="">Select a customer credit purchase</option>'+active.map(c=>`<option value="${c.id}">${esc(c.customer)} · ${esc((c.note||'').slice(0,40))} · balance ${peso(creditBalance(c))} · due ${dateLabel(c.due)}</option>`).join('');
+  $('crOutstanding').textContent=peso(active.reduce((a,c)=>a+creditBalance(c),0));
+  $('crDueSoon').textContent=peso(active.filter(c=>c.due>=isoToday()&&c.due<=plusDays(isoToday(),2)).reduce((a,c)=>a+creditBalance(c),0));
+  $('crOverdue').textContent=peso(active.filter(c=>c.due<isoToday()).reduce((a,c)=>a+creditBalance(c),0));
+  $('creditRows').innerHTML=state.credits.slice().reverse().map(c=>`<tr>
+    <td>${esc(c.customer)}${c.phone?'<br><span class="hint">'+esc(c.phone)+'</span>':''}</td>
+    <td>${esc(c.note||'—')}</td>
+    <td>${dateLabel(c.date)}</td>
+    <td>${dateLabel(c.due)}</td>
+    <td>${peso(c.limit)}</td>
+    <td>${peso(c.amount)}</td>
+    <td>${peso(c.paid)}</td>
+    <td><b>${peso(creditBalance(c))}</b></td>
+    <td>${creditStatus(c)}</td>
+    <td>${(c.payments||[]).map(p=>`${dateLabel(p.date)}: ${peso(p.amount)}${p.note?' ('+esc(p.note)+')':''}`).join('<br>')||'—'}</td>
+  </tr>`).join('')||'<tr><td colspan="10" class="empty">No credit purchases yet. Record products a customer bought on credit above.</td></tr>';
+}
+['crCustomer','crAmount','crLimit','crDate','crNote'].forEach(id=>{const el=$(id);if(el)el.addEventListener('input',renderCredit);});
+$('crDate').value=isoToday();
+if($('crProductPick')){
+  $('crProductPick').onchange=()=>{
+    const id=$('crProductPick').value;
+    const p=state.products.find(x=>x.id===id);
+    if(!p)return;
+    const qty=Math.max(1,num($('crQty').value)||1);
+    $('crNote').value=`${qty} × ${p.name}`;
+    $('crAmount').value=(Math.round(p.price*qty*100)/100).toFixed(2);
+    renderCredit();
+  };
+}
+if($('crQty')){
+  $('crQty').addEventListener('input',()=>{
+    const id=$('crProductPick')&&$('crProductPick').value;
+    const p=state.products.find(x=>x.id===id);
+    if(!p)return;
+    const qty=Math.max(1,num($('crQty').value)||1);
+    $('crNote').value=`${qty} × ${p.name}`;
+    $('crAmount').value=(Math.round(p.price*qty*100)/100).toFixed(2);
+    renderCredit();
+  });
+}
+$('crAdd').onclick=()=>{
+  const customer=$('crCustomer').value.trim(),phone=$('crPhone').value.trim(),limit=num($('crLimit').value),amount=num($('crAmount').value),date=$('crDate').value||isoToday(),note=$('crNote').value.trim();
+  if(!customer||!note||limit<0||amount<=0){toast('Enter customer name, products purchased, valid limit, and total amount.');return;}
+  const owed=state.credits.filter(c=>c.customer.toLowerCase()===customer.toLowerCase()).reduce((a,c)=>a+creditBalance(c),0);
+  if(owed+amount>limit){toast(`Credit exceeds this customer's limit. Available: ${peso(Math.max(0,limit-owed))}`);return;}
+  const productId=$('crProductPick')?$('crProductPick').value:'';
+  const qty=num($('crQty')&&$('crQty').value)||1;
+  state.credits.push({id:uid(),customer,phone,limit,amount,paid:0,date,due:plusDays(date,7),note,productId:productId||null,qty,payments:[]});
+  save();
+  $('crAmount').value='';$('crNote').value='';
+  if($('crProductPick'))$('crProductPick').value='';
+  if($('crQty'))$('crQty').value=1;
+  toast('Credit purchase saved. Due '+dateLabel(plusDays(date,7))+'.');
+  showTab('credit');
+};
+$('crPay').onclick=()=>{
+  const c=state.credits.find(x=>x.id===$('crPayAccount').value),amount=num($('crPayAmount').value);
+  if(!c){toast('Select an outstanding credit purchase.');return;}
+  if(amount<=0||amount>creditBalance(c)){toast('Enter a payment greater than zero and no more than the remaining balance.');return;}
+  c.paid=Number(c.paid||0)+amount;
+  c.payments=c.payments||[];
+  c.payments.push({date:isoToday(),amount,note:$('crPayNote').value.trim()});
+  save();
+  $('crPayAmount').value='';$('crPayNote').value='';
+  toast('Payment recorded. Remaining balance: '+peso(creditBalance(c)));
+};
 function renderAll(){renderProducts();renderSales();renderDashboard();runReport();if($('credit'))renderCredit()}
 load();renderAll();updateCalculator();updateSuggested();
 (function(){
