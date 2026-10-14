@@ -14,7 +14,7 @@
 <link rel="icon" type="image/png" sizes="512x512" href="./icon-512.png">
 <link rel="apple-touch-icon" sizes="180x180" href="./icon-180.png">
 <link rel="apple-touch-icon" href="./icon-192.png">
-<title>Kareth Trading & Manufacturing </title>
+<title>Kareth Store Manager</title>
 <style>
 :root{--green:#123b32;--green2:#1c6653;--bg:#f3f6f4;--card:#fff;--ink:#17211e;--muted:#65716c;--line:#dce5df;--red:#b42318;--amber:#986300}
 *{box-sizing:border-box}body{margin:0;font:15px system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--ink)}
@@ -52,9 +52,9 @@ footer{text-align:center;color:var(--muted);font-size:11px;padding:20px}
 <header>
 <h1 style="display:flex;align-items:center;gap:10px">
   <img src="./logo-header.png" alt="Kareth" width="36" height="36" style="border-radius:8px;background:#fff;flex-shrink:0">
-  Kareth Trading & Manufacturing Co.
+  Kareth Store Manager
 </h1>
-<p> Convenience Store · Offline-first · PHP (₱)</p>
+<p>Hardware + Convenience Store · Offline-first · PHP (₱)</p>
 </header>
 <nav id="nav">
 <button class="active" data-tab="dashboard">Dashboard</button><button data-tab="products">Products</button><button data-tab="pricing">Price Calculator</button><button data-tab="sales">Record Sale</button><button data-tab="credit">Customer Credit</button><button data-tab="reports">Reports</button><button data-tab="backup">Backup & Settings</button>
@@ -67,6 +67,48 @@ footer{text-align:center;color:var(--muted);font-size:11px;padding:20px}
 <div class="stat"><small>Inventory cost value</small><strong id="statValue">₱0.00</strong></div>
 <div class="stat"><small>Sales today</small><strong id="statSales">₱0.00</strong></div>
 </div></div>
+<div class="card"><h2>Quick sale by photo</h2>
+<p class="hint">Take a photo of the product → app matches it → set quantity → complete sale. Stock is deducted automatically.</p>
+<div class="actions">
+  <button class="btn" id="dashCamSale">📷 Take photo &amp; sell</button>
+  <button class="btn secondary" id="dashCamStop" hidden>Stop camera</button>
+</div>
+<div id="dashCamArea"></div>
+<div id="dashSaleBox" hidden>
+  <div class="result" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+    <img id="dashSalePhoto" alt="" style="width:72px;height:72px;object-fit:cover;border-radius:10px;background:#eaf0ec">
+    <div>
+      <b id="dashSaleName">Product</b>
+      <div class="hint" id="dashSaleStock">Stock: 0</div>
+      <div class="hint" id="dashSaleMatch">Match: —</div>
+    </div>
+  </div>
+  <label for="dashSaleQty">Quantity</label>
+  <input id="dashSaleQty" type="number" min="1" step="1" value="1">
+  <label for="dashSalePrice">Price per unit (₱)</label>
+  <input id="dashSalePrice" type="number" min="0" step=".01">
+  <label>Payment</label>
+  <div class="row" style="margin-top:4px">
+    <label style="display:flex;align-items:center;gap:8px;font-size:14px;color:var(--ink);font-weight:650"><input type="radio" name="dashPay" id="dashPayCash" value="cash" checked> 💵 Cash</label>
+    <label style="display:flex;align-items:center;gap:8px;font-size:14px;color:var(--ink);font-weight:650"><input type="radio" name="dashPay" id="dashPayCredit" value="credit"> 📋 Credit</label>
+  </div>
+  <div id="dashCreditExtra" hidden>
+    <label for="dashCustomer">Customer name *</label>
+    <input id="dashCustomer" placeholder="Customer full name">
+  </div>
+  <div class="grid" style="margin-top:12px">
+    <div class="stat"><small>Gross (sale total)</small><strong id="dashGross">₱0.00</strong></div>
+    <div class="stat"><small>Cost of goods</small><strong id="dashCost">₱0.00</strong></div>
+    <div class="stat"><small>Net (gross profit)</small><strong id="dashNet">₱0.00</strong></div>
+    <div class="stat"><small>Stock after sale</small><strong id="dashStockAfter">0</strong></div>
+  </div>
+  <div class="actions">
+    <button class="btn" id="dashCompleteSale">Complete sale</button>
+    <button class="btn secondary" id="dashCancelSale">Cancel</button>
+  </div>
+</div>
+</div>
+
 <div class="card"><h2>All products</h2>
 <p class="hint">Names and photos of everything in inventory. Tap to sell or edit.</p>
 <div id="dashProducts" class="product-card-grid"></div>
@@ -973,6 +1015,161 @@ $('crPay').onclick=()=>{
   $('crPayAmount').value='';$('crPayNote').value='';
   toast('Payment recorded. Remaining balance: '+peso(creditBalance(c)));
 };
+
+/* ===== Dashboard quick sale by photo ===== */
+let dashSaleProductId=null, dashCamStream=null;
+
+function updateDashSaleTotals(){
+  const p=state.products.find(x=>x.id===dashSaleProductId);
+  if(!p)return;
+  const qty=Math.max(0,num($('dashSaleQty').value));
+  const price=num($('dashSalePrice').value);
+  const gross=qty*price;
+  const cost=qty*p.cost;
+  const net=gross-cost;
+  $('dashGross').textContent=peso(gross);
+  $('dashCost').textContent=peso(cost);
+  $('dashNet').textContent=peso(net);
+  $('dashStockAfter').textContent=Math.max(0,p.qty-qty);
+  $('dashSaleStock').textContent=`Available stock: ${p.qty} · Unit cost ${peso(p.cost)}`;
+}
+
+function stopDashCam(){
+  if(dashCamStream){dashCamStream.getTracks().forEach(t=>t.stop());dashCamStream=null;}
+  const area=$('dashCamArea');
+  if(area) area.innerHTML='';
+  if($('dashCamSale'))$('dashCamSale').hidden=false;
+  if($('dashCamStop'))$('dashCamStop').hidden=true;
+}
+
+function showDashSaleProduct(p, score){
+  dashSaleProductId=p.id;
+  const box=$('dashSaleBox');
+  box.hidden=false;
+  const img=$('dashSalePhoto');
+  if(p.photo){img.src=p.photo;img.style.display='block';}
+  else {img.removeAttribute('src');img.style.display='none';}
+  $('dashSaleName').textContent=p.name;
+  $('dashSaleMatch').textContent=score!=null?`Match confidence: ${score}%`:'Selected from camera match';
+  $('dashSaleQty').value=1;
+  $('dashSalePrice').value=p.price;
+  if($('dashPayCash'))$('dashPayCash').checked=true;
+  if($('dashCreditExtra'))$('dashCreditExtra').hidden=true;
+  if($('dashCustomer'))$('dashCustomer').value='';
+  updateDashSaleTotals();
+}
+
+async function startDashCamSale(){
+  stopDashCam();
+  const withPhotos=state.products.filter(p=>p.photo).length;
+  if(!withPhotos){toast('Add product photos first so the camera can identify items.');return;}
+  const area=$('dashCamArea');
+  try{
+    dashCamStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'},audio:false});
+    area.innerHTML=`<div class="camera-wrap">
+      <video id="dashVideo" autoplay playsinline style="width:100%;max-width:400px;border-radius:12px"></video>
+      <div class="camera-actions">
+        <button class="btn" id="dashCaptureBtn">Capture & identify</button>
+        <button class="btn secondary" id="dashCamCancel">Cancel</button>
+      </div>
+      <p class="hint">Point at the product, then capture.</p>
+      <div id="dashMatchResults"></div>
+    </div>`;
+    $('dashVideo').srcObject=dashCamStream;
+    $('dashCamSale').hidden=true;
+    $('dashCamStop').hidden=false;
+    $('dashCamCancel').onclick=stopDashCam;
+    $('dashCamStop').onclick=stopDashCam;
+    $('dashCaptureBtn').onclick=async()=>{
+      const v=$('dashVideo');
+      if(!v.videoWidth){toast('Camera not ready');return;}
+      const c=document.createElement('canvas');
+      c.width=v.videoWidth; c.height=v.videoHeight;
+      c.getContext('2d').drawImage(v,0,0);
+      const raw=c.toDataURL('image/jpeg',0.85);
+      const data=await compressImage(raw,320,0.6);
+      $('dashMatchResults').innerHTML='<p class="hint">Identifying product…</p>';
+      try{
+        const matches=await matchPhotoToProducts(data);
+        stopDashCam();
+        if(!matches.length){
+          area.innerHTML=`<div class="result"><p>No matching product found.</p>
+            <p class="hint">Save clear photos on products first. Try again with better lighting.</p>
+            <button class="btn secondary" id="dashRetryCam">Try again</button></div>`;
+          $('dashRetryCam').onclick=startDashCamSale;
+          return;
+        }
+        // Auto-select best match if high confidence, else show list
+        const best=matches[0];
+        if(best.score>=55 || matches.length===1){
+          showDashSaleProduct(best.product, best.score);
+          toast(`Matched: ${best.product.name} (${best.score}%)`);
+          area.innerHTML='';
+        } else {
+          area.innerHTML=`<div class="result"><b>Select the product</b>
+            <div class="product-card-grid" style="margin-top:8px">`+
+            matches.map(m=>`<div class="product-card" data-id="${m.product.id}" data-score="${m.score}">
+              ${m.product.photo?`<img src="${m.product.photo}" alt="">`:`<div style="height:100px;background:#eaf0ec;border-radius:8px"></div>`}
+              <div class="pname">${esc(m.product.name)}</div>
+              <div class="pmeta">${m.score}% · ${m.product.qty} in stock · ${peso(m.product.price)}</div>
+            </div>`).join('')+`</div></div>`;
+          area.querySelectorAll('.product-card[data-id]').forEach(card=>{
+            card.onclick=()=>{
+              const pr=state.products.find(x=>x.id===card.getAttribute('data-id'));
+              if(pr){showDashSaleProduct(pr, Number(card.getAttribute('data-score')));area.innerHTML='';}
+            };
+          });
+        }
+      }catch(err){
+        $('dashMatchResults').innerHTML='<p class="hint">Identification failed. Try again.</p>';
+        console.error(err);
+      }
+    };
+  }catch(e){
+    area.innerHTML='<p class="hint">Camera access failed. Allow camera permission.</p>';
+  }
+}
+
+if($('dashCamSale'))$('dashCamSale').onclick=startDashCamSale;
+if($('dashSaleQty'))$('dashSaleQty').addEventListener('input',updateDashSaleTotals);
+if($('dashSalePrice'))$('dashSalePrice').addEventListener('input',updateDashSaleTotals);
+if($('dashPayCash'))$('dashPayCash').onchange=()=>{if($('dashCreditExtra'))$('dashCreditExtra').hidden=true;};
+if($('dashPayCredit'))$('dashPayCredit').onchange=()=>{if($('dashCreditExtra'))$('dashCreditExtra').hidden=false;};
+if($('dashCancelSale'))$('dashCancelSale').onclick=()=>{
+  dashSaleProductId=null;
+  $('dashSaleBox').hidden=true;
+  stopDashCam();
+};
+if($('dashCompleteSale'))$('dashCompleteSale').onclick=()=>{
+  const p=state.products.find(x=>x.id===dashSaleProductId);
+  if(!p){toast('No product selected');return;}
+  const qty=num($('dashSaleQty').value), unit=num($('dashSalePrice').value);
+  if(!Number.isInteger(qty)||qty<1||qty>p.qty){toast('Quantity must be a whole number within available stock.');return;}
+  if(unit<0){toast('Check price');return;}
+  const payMethod=($('dashPayCredit')&&$('dashPayCredit').checked)?'credit':'cash';
+  const customer=($('dashCustomer')&&$('dashCustomer').value.trim())||'';
+  if(payMethod==='credit'&&!customer){toast('Enter customer name for credit.');return;}
+  const total=qty*unit;
+  const profit=total-qty*p.cost;
+  if(payMethod==='credit'){
+    const limit=2000;
+    const owed=state.credits.filter(c=>c.customer.toLowerCase()===customer.toLowerCase()).reduce((a,c)=>a+creditBalance(c),0);
+    if(owed+total>limit){toast(`Credit exceeds limit. Available: ${peso(Math.max(0,limit-owed))}`);return;}
+  }
+  const s={id:uid(),date:new Date().toISOString(),productId:p.id,productName:p.name,qty,unitPrice:unit,discount:0,total,costAtSale:p.cost,profit,note:'Dashboard photo sale',payMethod,customer:payMethod==='credit'?customer:''};
+  p.qty-=qty;
+  state.sales.unshift(s);
+  if(payMethod==='credit'){
+    const date=isoToday();
+    state.credits.push({id:uid(),customer,phone:'',limit:2000,amount:total,paid:0,date,due:plusDays(date,7),note:`${qty} × ${p.name}`,productId:p.id,qty,saleId:s.id,payments:[]});
+  }
+  save();
+  dashSaleProductId=null;
+  $('dashSaleBox').hidden=true;
+  toast(`${payMethod==='credit'?'Credit':'Cash'} sale: ${qty} × ${p.name} · Gross ${peso(total)} · Net ${peso(profit)}`);
+};
+
+
 function renderAll(){renderProducts();renderSales();renderDashboard();runReport();if($('credit'))renderCredit()}
 load();renderAll();updateCalculator();updateSuggested();
 (function(){
