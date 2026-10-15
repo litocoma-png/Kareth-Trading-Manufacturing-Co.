@@ -216,22 +216,37 @@ footer{text-align:center;color:var(--muted);font-size:11px;padding:20px}
 </div>
 
 <div class="card"><h2>Record product purchase on credit</h2>
-<p class="hint">When a customer takes products now and pays later (7 days). Optionally pick a product from your inventory to fill the amount. Stock is not deducted here — use Record Sale for paid sales, or note credit purchases separately.</p>
+<p class="hint">When a customer takes products now and pays later. Add one or more products into a <b>single credit transaction</b>. Stock is <b>not</b> deducted here (use Record Sale if you also want to reduce stock).</p>
 <div class="formgrid">
   <div><label for="crCustomer">Customer name *</label><input id="crCustomer" placeholder="Customer full name"></div>
   <div><label for="crPhone">Contact number</label><input id="crPhone" placeholder="Optional phone number"></div>
-  <div><label for="crProductPick">Product purchased (from inventory)</label>
-    <select id="crProductPick"><option value="">— Type products below, or pick one —</option></select>
-  </div>
-  <div><label for="crQty">Quantity</label><input id="crQty" type="number" min="1" step="1" value="1"></div>
-  <div><label for="crNote">Products / items purchased *</label><input id="crNote" placeholder="e.g. 2 sacks cement, dishwashing liquid"></div>
-  <div><label for="crAmount">Total amount (₱) *</label><input id="crAmount" type="number" min=".01" step=".01" placeholder="0.00"></div>
   <div><label for="crLimit">Customer credit limit (₱) *</label><input id="crLimit" type="number" min="0" step=".01" value="2000"></div>
   <div><label for="crDate">Purchase date</label><input id="crDate" type="date"></div>
+  <div><label for="crDue">Payment due date *</label><input id="crDue" type="date">
+    <p class="hint" style="margin:4px 0 0">Defaults to 7 days after purchase. You can change it.</p>
+  </div>
 </div>
+
+<div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--line)">
+  <h3 style="margin:0 0 8px">Products in this credit transaction</h3>
+  <div class="formgrid">
+    <div><label for="crProductPick">Product from inventory</label>
+      <select id="crProductPick"><option value="">— Choose a product —</option></select>
+    </div>
+    <div><label for="crQty">Quantity</label><input id="crQty" type="number" min="1" step="1" value="1"></div>
+  </div>
+  <div class="actions" style="margin-top:8px">
+    <button type="button" class="btn secondary" id="crAddProduct">＋ Add product to list</button>
+  </div>
+  <div id="crSelectedList" style="margin-top:10px"></div>
+  <label for="crNote" style="margin-top:10px">Extra note / description (optional)</label>
+  <input id="crNote" placeholder="Optional extra details">
+  <label for="crAmount">Total amount (₱) *</label>
+  <input id="crAmount" type="number" min=".01" step=".01" placeholder="0.00">
+  <p class="hint">Total is filled from the product list. You can still adjust it if needed.</p>
+</div>
+
 <div class="result">
-  <div class="hint">Payment due date (7 days)</div>
-  <strong id="crDuePreview">Choose a purchase date</strong>
   <div class="hint" id="crLimitPreview">Enter customer and amount to check available credit.</div>
 </div>
 <div class="actions"><button class="btn" id="crAdd">Save credit purchase</button></div>
@@ -931,30 +946,109 @@ function plusDays(date,days){const d=new Date((date||isoToday())+'T12:00:00');d.
 function creditBalance(c){return Math.max(0,Number(c.amount||0)-Number(c.paid||0))}
 function dateLabel(d){return d?new Date(d+'T12:00:00').toLocaleDateString('en-PH',{year:'numeric',month:'short',day:'numeric'}):'—'}
 function creditStatus(c){const b=creditBalance(c);if(b<=0)return 'PAID';if(c.due<isoToday())return 'OVERDUE';if(c.due<=plusDays(isoToday(),2))return 'DUE SOON';return 'UNPAID'}
+let crSelectedItems=[]; // {productId, name, qty, unitPrice, lineTotal}
+let crDueManual=false; // true once user edits due date
+
 function fillCreditProductSelect(){
   const sel=$('crProductPick');
   if(!sel) return;
   const cur=sel.value;
-  sel.innerHTML='<option value="">— Type products below, or pick one —</option>'+
+  sel.innerHTML='<option value="">— Choose a product —</option>'+
     state.products.map(p=>`<option value="${p.id}">${esc(p.name)} · ${peso(p.price)} · stock ${p.qty}</option>`).join('');
   if(cur) sel.value=cur;
 }
+
+function crItemsNote(){
+  if(!crSelectedItems.length) return '';
+  return crSelectedItems.map(it=>`${it.qty} × ${it.name}`).join(', ');
+}
+
+function updateCrAmountFromItems(){
+  const total=crSelectedItems.reduce((a,it)=>a+it.lineTotal,0);
+  if(crSelectedItems.length){
+    $('crAmount').value=(Math.round(total*100)/100).toFixed(2);
+  }
+  renderCredit();
+}
+
+function syncCrDueFromPurchase(){
+  if(crDueManual) return;
+  const date=$('crDate')&&$('crDate').value;
+  if(date && $('crDue')) $('crDue').value=plusDays(date,7);
+}
+
+function renderCrSelectedList(){
+  const el=$('crSelectedList');
+  if(!el) return;
+  if(!crSelectedItems.length){
+    el.innerHTML='<p class="hint" style="margin:0">No products added yet. Choose a product and quantity, then tap “Add product to list”.</p>';
+    return;
+  }
+  el.innerHTML=`<div class="tablewrap"><table>
+    <thead><tr><th>Product</th><th>Qty</th><th>Unit price</th><th>Line total</th><th></th></tr></thead>
+    <tbody>${crSelectedItems.map((it,i)=>`<tr>
+      <td><b>${esc(it.name)}</b></td>
+      <td>${it.qty}</td>
+      <td>${peso(it.unitPrice)}</td>
+      <td>${peso(it.lineTotal)}</td>
+      <td><button type="button" class="btn small danger" onclick="removeCrSelectedItem(${i})">Remove</button></td>
+    </tr>`).join('')}</tbody>
+  </table></div>
+  <p class="hint" style="margin-top:6px"><b>${crSelectedItems.length}</b> product(s) · Subtotal ${peso(crSelectedItems.reduce((a,it)=>a+it.lineTotal,0))}</p>`;
+}
+
+function addCrSelectedProduct(){
+  const id=$('crProductPick')&&$('crProductPick').value;
+  const p=state.products.find(x=>x.id===id);
+  if(!p){toast('Choose a product first.');return;}
+  const qty=Math.max(1,Math.floor(num($('crQty').value)||1));
+  const unitPrice=num(p.price);
+  const lineTotal=Math.round(unitPrice*qty*100)/100;
+  const existing=crSelectedItems.find(it=>it.productId===p.id);
+  if(existing){
+    existing.qty+=qty;
+    existing.lineTotal=Math.round(existing.unitPrice*existing.qty*100)/100;
+    toast(`Updated quantity for ${p.name}`);
+  } else {
+    crSelectedItems.push({productId:p.id,name:p.name,qty,unitPrice,lineTotal});
+    toast(`Added ${qty} × ${p.name}`);
+  }
+  if($('crProductPick'))$('crProductPick').value='';
+  if($('crQty'))$('crQty').value=1;
+  renderCrSelectedList();
+  updateCrAmountFromItems();
+}
+
+function removeCrSelectedItem(idx){
+  if(idx<0||idx>=crSelectedItems.length) return;
+  const removed=crSelectedItems.splice(idx,1)[0];
+  renderCrSelectedList();
+  updateCrAmountFromItems();
+  toast(`Removed ${removed.name}`);
+}
+window.removeCrSelectedItem=removeCrSelectedItem;
+
 function renderCredit(){
   if(!$('crDate'))return;
   fillCreditProductSelect();
-  const date=$('crDate').value||isoToday();
-  $('crDuePreview').textContent=dateLabel(plusDays(date,7));
+  syncCrDueFromPurchase();
   const customer=$('crCustomer').value.trim(),amount=num($('crAmount').value),limit=num($('crLimit').value);
   const owed=state.credits.filter(c=>c.customer.toLowerCase()===customer.toLowerCase()).reduce((a,c)=>a+creditBalance(c),0);
-  $('crLimitPreview').textContent=customer?`Existing balance ${peso(owed)} · Available credit ${peso(Math.max(0,limit-owed))}`:'Enter customer and amount to check available credit.';
+  if($('crLimitPreview')) $('crLimitPreview').textContent=customer?`Existing balance ${peso(owed)} · Available credit ${peso(Math.max(0,limit-owed))}`:'Enter customer and amount to check available credit.';
   const active=state.credits.filter(c=>creditBalance(c)>0);
   $('crPayAccount').innerHTML='<option value="">Select a customer credit purchase</option>'+active.map(c=>`<option value="${c.id}">${esc(c.customer)} · ${esc((c.note||'').slice(0,40))} · balance ${peso(creditBalance(c))} · due ${dateLabel(c.due)}</option>`).join('');
   $('crOutstanding').textContent=peso(active.reduce((a,c)=>a+creditBalance(c),0));
   $('crDueSoon').textContent=peso(active.filter(c=>c.due>=isoToday()&&c.due<=plusDays(isoToday(),2)).reduce((a,c)=>a+creditBalance(c),0));
   $('crOverdue').textContent=peso(active.filter(c=>c.due<isoToday()).reduce((a,c)=>a+creditBalance(c),0));
-  $('creditRows').innerHTML=state.credits.slice().reverse().map(c=>`<tr>
+  $('creditRows').innerHTML=state.credits.slice().reverse().map(c=>{
+    let productsCell=esc(c.note||'—');
+    if(Array.isArray(c.items)&&c.items.length){
+      productsCell=c.items.map(it=>`${it.qty} × ${esc(it.name)}`).join('<br>');
+      if(c.extraNote) productsCell+=`<br><span class="hint">${esc(c.extraNote)}</span>`;
+    }
+    return `<tr>
     <td>${esc(c.customer)}${c.phone?'<br><span class="hint">'+esc(c.phone)+'</span>':''}</td>
-    <td>${esc(c.note||'—')}</td>
+    <td>${productsCell}</td>
     <td>${dateLabel(c.date)}</td>
     <td>${dateLabel(c.due)}</td>
     <td>${peso(c.limit)}</td>
@@ -963,45 +1057,56 @@ function renderCredit(){
     <td><b>${peso(creditBalance(c))}</b></td>
     <td>${creditStatus(c)}</td>
     <td>${(c.payments||[]).map(p=>`${dateLabel(p.date)}: ${peso(p.amount)}${p.note?' ('+esc(p.note)+')':''}`).join('<br>')||'—'}</td>
-  </tr>`).join('')||'<tr><td colspan="10" class="empty">No credit purchases yet. Record products a customer bought on credit above.</td></tr>';
+  </tr>`;
+  }).join('')||'<tr><td colspan="10" class="empty">No credit purchases yet. Record products a customer bought on credit above.</td></tr>';
 }
-['crCustomer','crAmount','crLimit','crDate','crNote'].forEach(id=>{const el=$(id);if(el)el.addEventListener('input',renderCredit);});
+['crCustomer','crAmount','crLimit','crDate','crNote','crDue'].forEach(id=>{const el=$(id);if(el)el.addEventListener('input',renderCredit);});
 $('crDate').value=isoToday();
-if($('crProductPick')){
-  $('crProductPick').onchange=()=>{
-    const id=$('crProductPick').value;
-    const p=state.products.find(x=>x.id===id);
-    if(!p)return;
-    const qty=Math.max(1,num($('crQty').value)||1);
-    $('crNote').value=`${qty} × ${p.name}`;
-    $('crAmount').value=(Math.round(p.price*qty*100)/100).toFixed(2);
-    renderCredit();
-  };
-}
-if($('crQty')){
-  $('crQty').addEventListener('input',()=>{
-    const id=$('crProductPick')&&$('crProductPick').value;
-    const p=state.products.find(x=>x.id===id);
-    if(!p)return;
-    const qty=Math.max(1,num($('crQty').value)||1);
-    $('crNote').value=`${qty} × ${p.name}`;
-    $('crAmount').value=(Math.round(p.price*qty*100)/100).toFixed(2);
-    renderCredit();
-  });
-}
+if($('crDue')) $('crDue').value=plusDays(isoToday(),7);
+if($('crDate')) $('crDate').addEventListener('change',()=>{crDueManual=false;syncCrDueFromPurchase();renderCredit();});
+if($('crDue')) $('crDue').addEventListener('change',()=>{crDueManual=true;});
+if($('crAddProduct'))$('crAddProduct').onclick=addCrSelectedProduct;
+renderCrSelectedList();
+
 $('crAdd').onclick=()=>{
-  const customer=$('crCustomer').value.trim(),phone=$('crPhone').value.trim(),limit=num($('crLimit').value),amount=num($('crAmount').value),date=$('crDate').value||isoToday(),note=$('crNote').value.trim();
-  if(!customer||!note||limit<0||amount<=0){toast('Enter customer name, products purchased, valid limit, and total amount.');return;}
+  const customer=$('crCustomer').value.trim(),phone=$('crPhone').value.trim(),limit=num($('crLimit').value),amount=num($('crAmount').value),date=$('crDate').value||isoToday(),extraNote=$('crNote').value.trim();
+  const due=($('crDue')&&$('crDue').value)||plusDays(date,7);
+  const itemsNote=crItemsNote();
+  const note=itemsNote?(extraNote?itemsNote+' — '+extraNote:itemsNote):extraNote;
+  if(!customer){toast('Enter customer name.');return;}
+  if(!crSelectedItems.length && !extraNote){toast('Add at least one product, or type a description in the note field.');return;}
+  if(limit<0||amount<=0){toast('Enter a valid credit limit and total amount greater than zero.');return;}
+  if(!due){toast('Choose a payment due date.');return;}
   const owed=state.credits.filter(c=>c.customer.toLowerCase()===customer.toLowerCase()).reduce((a,c)=>a+creditBalance(c),0);
   if(owed+amount>limit){toast(`Credit exceeds this customer's limit. Available: ${peso(Math.max(0,limit-owed))}`);return;}
-  const productId=$('crProductPick')?$('crProductPick').value:'';
-  const qty=num($('crQty')&&$('crQty').value)||1;
-  state.credits.push({id:uid(),customer,phone,limit,amount,paid:0,date,due:plusDays(date,7),note,productId:productId||null,qty,payments:[]});
+  const record={
+    id:uid(),
+    customer,
+    phone,
+    limit,
+    amount,
+    paid:0,
+    date,
+    due,
+    note:note||'Credit purchase',
+    extraNote:extraNote||'',
+    items:crSelectedItems.map(it=>({productId:it.productId,name:it.name,qty:it.qty,unitPrice:it.unitPrice,lineTotal:it.lineTotal})),
+    productId:crSelectedItems.length===1?crSelectedItems[0].productId:null,
+    qty:crSelectedItems.length===1?crSelectedItems[0].qty:null,
+    payments:[]
+  };
+  state.credits.push(record);
   save();
-  $('crAmount').value='';$('crNote').value='';
+  $('crAmount').value='';
+  $('crNote').value='';
   if($('crProductPick'))$('crProductPick').value='';
   if($('crQty'))$('crQty').value=1;
-  toast('Credit purchase saved. Due '+dateLabel(plusDays(date,7))+'.');
+  crSelectedItems=[];
+  crDueManual=false;
+  if($('crDate'))$('crDate').value=isoToday();
+  if($('crDue'))$('crDue').value=plusDays(isoToday(),7);
+  renderCrSelectedList();
+  toast('Credit purchase saved. Due '+dateLabel(due)+'.');
   showTab('credit');
 };
 $('crPay').onclick=()=>{
